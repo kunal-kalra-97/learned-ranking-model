@@ -1,3 +1,5 @@
 scikit-learn
 joblib
 requests
+pandas
+tqdm
