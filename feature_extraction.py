@@ -46,14 +46,12 @@ def extract_features(file_path:str):
 
         # extract query identifier (to map this plan to the corresponding query)
         sql = plan.pop("sql")
-        hint = plan.pop("hint")
 
         # extract feature information
         features = extract_feature(plan)
 
         feature_vectors.append({
             'sql': sql,
-            'hint': hint,
             'features': features,
             'label': label
         })

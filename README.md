@@ -23,8 +23,8 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Extract features for the baseline model
-python feature_extraction.py --file_path ../learned-cost-model-admin-25/pruned_data/full_qo_complex_workload_200k_s1.json --output_path datasets/train_features.json
-python feature_extraction.py --file_path ../learned-cost-model-admin-25/pruned_data/join_order.json --output_path datasets/test_features.json
+python feature_extraction.py --file_path plans/train_plans1.json --output_path datasets/train_features.json
+python feature_extraction.py --file_path plans/test_plans.json --output_path datasets/test_features.json
 
 # Train and evaluate the query optimizer
 python train_test_model.py --train_data datasets/train_features.json --test_data datasets/test_features.json
@@ -34,6 +34,15 @@ python train_test_model.py --train_data datasets/train_features.json --test_data
 
 ## Feature Engineering and Model Extensions
 To improve upon the baseline, consider augmenting features with operator types and estimated cardinalities. While true cardinalities are unknown before execution, you can use cardinality estimation techniques. Including operator type and estimated cardinality in your feature vector can help the model select better plans. For more details, see this [paper](https://ieeexplore.ieee.org/document/4812438).
+
+Possible model architectures:
+- Cost-based Query Optimizer: predict costs and pick the plan with the lowest runtime
+- Ranking Model: select the fastest plan from a list of plans (e.g. pairwise/listwise)
+
+Datasets - we have provided two datasets plus a (public) test dataset:
+- `plans/test_plans.json`: Dataset with multiple plans for the same query
+- `plans/train_plans1.json`: Dataset with multiple plans for the same query
+- `plans/train_plans2.json`: Dataset with one plan per query
 
 ## Advanced Models (Bonus)
 Explore creative feature engineering and model architectures to further enhance your learned query optimizer. Consider what additional information or model types could improve runtime prediction accuracy.
