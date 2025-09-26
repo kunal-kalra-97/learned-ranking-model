@@ -18,7 +18,7 @@ run_model_evaluation:
     - pip3 install -r requirements.txt
     - cp -r /tmp/eval_dir/* .
     # Extract features from the unseen test set
-    - python3 feature_extraction.py --file_path workload_test.json --target_features test_features.json
+    - python3 feature_extraction.py --file_path workload_test.json --output_path test_features.json
     # Evaluate the model given the extracted features against the unseen labels
     - python3 evaluate_leaderboard.py --test_data test_features.json
   timeout: 5 minutes
