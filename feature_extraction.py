@@ -73,7 +73,9 @@ def save_data(file_path, data):
     """
 
     # make sure the output path exists
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    dir_name = os.path.dirname(file_path)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
     with open(file_path, 'w') as file:
         json.dump(data, file)
 
