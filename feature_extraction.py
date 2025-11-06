@@ -154,7 +154,6 @@ def extract_features(file_path:str):
             'features': features,
             'label': label
         })
-        break
 
     return feature_vectors
 
