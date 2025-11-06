@@ -2,15 +2,15 @@ import json
 import os
 import re
 import argparse
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple, Set
 
 from feature_extractor import FeatureExtractor
 
 
-def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]])->Any:
+def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]], unique_join_pairs: dict[tuple[str, str], int])->Any:
     feature_extractor = FeatureExtractor(plan, table_stats)
     feature_tables, feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
-
+    feature_joins, edges_used, edge_to_id = feature_extractor.extract_features_for_joins(unique_join_pairs)
     # DEMO Implementation: return the depth of the plan
     def compute_depth(node:Dict)->int:
         if 'children' not in node or not node['children']:
@@ -71,6 +71,48 @@ def extract_table_column_map(column_stats: List, table_stats: List)->Dict[str, D
         })
     return table_column_map
 
+Edge = Tuple[str, str]
+def extract_unique_join_pairs(parsed_plans: List[Any])-> dict[tuple[str, str], int]:
+    """
+        One-time pass over training plans to build a stable join-edge vocabulary.
+        Returns: edge_to_id mapping (unordered table pair -> index).
+    """
+
+    def _canonical_edge(t1: str, t2: str) -> Edge:
+        """Make the edge order-invariant (unordered pair)."""
+        return (t1, t2) if t1 <= t2 else (t2, t1)
+
+    def _gather_join_edges_from_node(node: Dict, out: List[Edge]) -> None:
+        """
+        DFS a single plan tree; append one edge per *join node* found in node['plan_parameters'].
+        Only reads from 'plan_parameters' and recurses into 'children'.
+        """
+        if not isinstance(node, dict):
+            return
+
+        plan_parameters = node.get("plan_parameters", {})
+        join = plan_parameters.get("join")
+
+        if isinstance(join, dict):
+            t1 = join.get("table_name1")
+            t2 = join.get("table_name2")
+            if isinstance(t1, str) and t1 and isinstance(t2, str) and t2:
+                out.append(_canonical_edge(t1, t2))
+
+        for child in (node.get("children") or []):
+            _gather_join_edges_from_node(child, out)
+
+    edges_seen: Set[Edge] = set()
+
+    for plan in parsed_plans:
+        edges: List[Edge] = []
+        _gather_join_edges_from_node(plan, edges)
+        edges_seen.update(edges)
+    edge_list = sorted(edges_seen)
+    edge_to_id = {edge: i for i, edge in enumerate(edge_list)}
+    edge_to_id["<UNK_EDGE>"] = len(edge_to_id)
+    return edge_to_id
+
 
 def extract_features(file_path:str):
     """
@@ -91,6 +133,7 @@ def extract_features(file_path:str):
     column_stats = json_data['database_stats']['column_stats']
     table_stats = json_data['database_stats']['table_stats']
     table_column_map = extract_table_column_map(column_stats, table_stats)
+    unique_join_pairs = extract_unique_join_pairs(plans)
     feature_vectors = []
 
     for plan in plans:
@@ -103,14 +146,15 @@ def extract_features(file_path:str):
 
         # extract query identifier (to map this plan to the corresponding query)
         sql = plan.pop("sql")
-
+        print(sql)
         # extract feature information
-        features = extract_feature(plan, table_column_map)
+        features = extract_feature(plan, table_column_map, unique_join_pairs)
         feature_vectors.append({
             'sql': sql,
             'features': features,
             'label': label
         })
+        break
 
     return feature_vectors
 
