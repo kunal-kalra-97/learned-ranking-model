@@ -2,12 +2,14 @@ import json
 import os
 import re
 import argparse
-from typing import Any, Dict
+from typing import Any, Dict, List
+
+from feature_extractor import FeatureExtractor
 
 
-def extract_feature(plan:Dict)->Any:
-
-    # TODO implement feature extraction logic here
+def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]])->Any:
+    feature_extractor = FeatureExtractor(plan, table_stats)
+    feature_tables, feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
 
     # DEMO Implementation: return the depth of the plan
     def compute_depth(node:Dict)->int:
@@ -16,6 +18,58 @@ def extract_feature(plan:Dict)->Any:
         return 1 + max(compute_depth(child) for child in node['children'])
 
     return [42, compute_depth(plan)]  # Replace with actual feature vector
+
+
+def extract_table_column_map(column_stats: List, table_stats: List)->Dict[str, Dict[str, Any]]:
+    """
+        Extracts table statistics from the provided column statistics.
+
+        Parameters:
+            column_stats (list): List of column statistics for each table.
+
+        Returns:
+            Dictionary of table statistics in the following format:
+        {
+            <tableName>: {
+                "tableName": <str>,
+                "tableSize": <float or None>,
+                "columns": [
+                    {
+                        "colName": <str>,
+                        "dataType":
+                        "avgWidth":
+                        "nullFrac":
+                        "nDistinct":
+                        "correlation":
+                    }, ...
+                ]
+            }, ...
+        }
+
+    """
+
+    table_column_map:Dict[str, Dict[str, Any]] = {}
+
+    for table_stat in table_stats:
+        table_name = table_stat['relname']
+        if table_name not in table_column_map:
+            table_column_map[table_name] = {
+                "tableName": table_name,
+                "tableSize": table_stat["reltuples"],
+                "columns": []
+            }
+
+    for column_stat in column_stats:
+        table_name = column_stat['tablename']
+        table_column_map[table_name]["columns"].append({
+            "colName": column_stat["attname"],
+            "dataType": column_stat["data_type"],
+            "avgWidth": column_stat["avg_width"],
+            "nullFrac": column_stat["null_frac"],
+            "nDistinct": column_stat["n_distinct"],
+            "correlation": column_stat["correlation"],
+        })
+    return table_column_map
 
 
 def extract_features(file_path:str):
@@ -34,6 +88,9 @@ def extract_features(file_path:str):
     
     plans = json_data['parsed_plans']
 
+    column_stats = json_data['database_stats']['column_stats']
+    table_stats = json_data['database_stats']['table_stats']
+    table_column_map = extract_table_column_map(column_stats, table_stats)
     feature_vectors = []
 
     for plan in plans:
@@ -48,8 +105,7 @@ def extract_features(file_path:str):
         sql = plan.pop("sql")
 
         # extract feature information
-        features = extract_feature(plan)
-
+        features = extract_feature(plan, table_column_map)
         feature_vectors.append({
             'sql': sql,
             'features': features,
