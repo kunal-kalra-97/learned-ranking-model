@@ -26,11 +26,9 @@ class FeatureExtractor:
                 DFS over the plan tree; add table names found in node['plan_parameters']
             """
             plan_parameters = node["plan_parameters"] or {}
-            for key in ("table_name", "table_name1", "table_name2", "relname"):
-                t = plan_parameters.get(key)
-                if isinstance(t, str) and t:
-                    distinct_tables.add(t)
-                    break
+            t = plan_parameters.get("table_name")
+            if isinstance(t, str) and t:
+                distinct_tables.add(t)
             for child in node["children"] or []:
                 _get_tables_used_in_plan(child, distinct_tables)
 
@@ -52,7 +50,8 @@ class FeatureExtractor:
         return feature_tables, feature_vectors, tab2idx
 
 
-
+    def extract_features_for_joins(self)->Tuple[Any, Any, Any]:
+        print("Extracting features for joins...")
 
 
 
