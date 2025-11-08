@@ -11,6 +11,7 @@ def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]], unique_jo
     feature_extractor = FeatureExtractor(plan, table_stats)
     feature_tables, feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
     feature_joins, edges_used, edge_to_id = feature_extractor.extract_features_for_joins(unique_join_pairs)
+
     # DEMO Implementation: return the depth of the plan
     def compute_depth(node:Dict)->int:
         if 'children' not in node or not node['children']:
@@ -72,7 +73,7 @@ def extract_table_column_map(column_stats: List, table_stats: List)->Dict[str, D
     return table_column_map
 
 Edge = Tuple[str, str]
-def extract_unique_join_pairs(parsed_plans: List[Any])-> dict[tuple[str, str], int]:
+def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     """
         One-time pass over training plans to build a stable join-edge vocabulary.
         Returns: edge_to_id mapping (unordered table pair -> index).
@@ -82,10 +83,9 @@ def extract_unique_join_pairs(parsed_plans: List[Any])-> dict[tuple[str, str], i
         """Make the edge order-invariant (unordered pair)."""
         return (t1, t2) if t1 <= t2 else (t2, t1)
 
-    def _gather_join_edges_from_node(node: Dict, out: List[Edge]) -> None:
+    def _gather_join_edges_from_node(node: Dict, edges_list: List[Edge], algos_list: List[str], ops_list: List[str]) -> None:
         """
         DFS a single plan tree; append one edge per *join node* found in node['plan_parameters'].
-        Only reads from 'plan_parameters' and recurses into 'children'.
         """
         if not isinstance(node, dict):
             return
@@ -94,24 +94,44 @@ def extract_unique_join_pairs(parsed_plans: List[Any])-> dict[tuple[str, str], i
         join = plan_parameters.get("join")
 
         if isinstance(join, dict):
+            op_name = plan_parameters.get("op_name")
             t1 = join.get("table_name1")
             t2 = join.get("table_name2")
             if isinstance(t1, str) and t1 and isinstance(t2, str) and t2:
-                out.append(_canonical_edge(t1, t2))
+                edges_list.append(_canonical_edge(t1, t2))
+            if isinstance(op_name, str) and op_name:
+                algos_list.append(op_name)
+            # Will recursively reach into the leaf nodes of the join tree.
+            for ch in node.get("children"):
+                ch_op = ch.get("plan_parameters", {}).get("op_name")
+                if isinstance(ch_op, str) and ch_op:
+                    ops_list.append(ch_op)
 
-        for child in (node.get("children") or []):
-            _gather_join_edges_from_node(child, out)
+        for child in (node.get("children", [])):
+            _gather_join_edges_from_node(child, edges_list, algos_list, ops_list)
 
     edges_seen: Set[Edge] = set()
+    algos_seen: Set[str] = set()
+    ops_seen: Set[str] = set()
 
     for plan in parsed_plans:
         edges: List[Edge] = []
-        _gather_join_edges_from_node(plan, edges)
+        algos: List[str] = []
+        ops: List[str] = []
+        _gather_join_edges_from_node(plan, edges, algos, ops)
         edges_seen.update(edges)
+        algos_seen.update(algos)
+        ops_seen.update(ops)
     edge_list = sorted(edges_seen)
+    algo_list = sorted(algos_seen)
+    op_list  = sorted(ops_seen)
     edge_to_id = {edge: i for i, edge in enumerate(edge_list)}
+    algo_to_id = {algo: i for i, algo in enumerate(algo_list)}
+    op_to_id = {op: i for i, op in enumerate(op_list)}
     edge_to_id["<UNK_EDGE>"] = len(edge_to_id)
-    return edge_to_id
+    algo_to_id["<UNK_ALG>"] = len(algo_to_id)
+    op_to_id["<UNK_OP>"] = len(op_to_id)
+    return edge_to_id, algo_to_id, op_to_id
 
 
 def extract_features(file_path:str):
@@ -133,10 +153,10 @@ def extract_features(file_path:str):
     column_stats = json_data['database_stats']['column_stats']
     table_stats = json_data['database_stats']['table_stats']
     table_column_map = extract_table_column_map(column_stats, table_stats)
-    unique_join_pairs = extract_unique_join_pairs(plans)
+    edge_to_id, algo_to_id, op_to_id = get_edge_dictionary_and_join_stats(plans)
     feature_vectors = []
 
-    for plan in plans:
+    for plan in plans[30:]:
         # extract label
         label = plan.get("plan_runtime_ms")
 
@@ -146,9 +166,8 @@ def extract_features(file_path:str):
 
         # extract query identifier (to map this plan to the corresponding query)
         sql = plan.pop("sql")
-        print(sql)
         # extract feature information
-        features = extract_feature(plan, table_column_map, unique_join_pairs)
+        features = extract_feature(plan, table_column_map, edge_to_id)
         feature_vectors.append({
             'sql': sql,
             'features': features,
