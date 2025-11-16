@@ -1,16 +1,18 @@
 import json
+import math
 import os
 import re
 import argparse
+from collections import defaultdict
 from typing import Any, Dict, List, Tuple, Set
 
 from feature_extractor import FeatureExtractor
 
 
-def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]], unique_join_pairs: dict[tuple[str, str], int])->Any:
+def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]], edge_to_id, algo_to_id, op_to_id, norms, md)->Any:
     feature_extractor = FeatureExtractor(plan, table_stats)
     feature_tables, feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
-    feature_joins, edges_used, edge_to_id = feature_extractor.extract_features_for_joins(unique_join_pairs)
+    join_features = feature_extractor.extract_features_for_joins(edge_to_id, algo_to_id, op_to_id, norms, md)
 
     # DEMO Implementation: return the depth of the plan
     def compute_depth(node:Dict)->int:
@@ -26,6 +28,7 @@ def extract_table_column_map(column_stats: List, table_stats: List)->Dict[str, D
         Extracts table statistics from the provided column statistics.
 
         Parameters:
+            table_stats:
             column_stats (list): List of column statistics for each table.
 
         Returns:
@@ -36,12 +39,6 @@ def extract_table_column_map(column_stats: List, table_stats: List)->Dict[str, D
                 "tableSize": <float or None>,
                 "columns": [
                     {
-                        "colName": <str>,
-                        "dataType":
-                        "avgWidth":
-                        "nullFrac":
-                        "nDistinct":
-                        "correlation":
                     }, ...
                 ]
             }, ...
@@ -83,24 +80,46 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
         """Make the edge order-invariant (unordered pair)."""
         return (t1, t2) if t1 <= t2 else (t2, t1)
 
-    def _gather_join_edges_from_node(node: Dict, edges_list: List[Edge], algos_list: List[str], ops_list: List[str]) -> None:
+    def _push(stats, key, val):
+        if val is None: return
+        stats[key].append(float(val))
+
+    buckets = defaultdict(list)
+    norms = {}
+
+
+    def _gather_join_edges_from_node(node: Dict, edges_list: List[Edge], algos_list: List[str], ops_list: List[str], depth = 0):
         """
         DFS a single plan tree; append one edge per *join node* found in node['plan_parameters'].
         """
         if not isinstance(node, dict):
-            return
+            return depth
 
         plan_parameters = node.get("plan_parameters", {})
         join = plan_parameters.get("join")
-
+        new_depth = depth
         if isinstance(join, dict):
             op_name = plan_parameters.get("op_name")
+            children = node.get("children")
             t1 = join.get("table_name1")
             t2 = join.get("table_name2")
             if isinstance(t1, str) and t1 and isinstance(t2, str) and t2:
                 edges_list.append(_canonical_edge(t1, t2))
             if isinstance(op_name, str) and op_name:
                 algos_list.append(op_name)
+            _push(buckets, "est_card_out_log", math.log1p(plan_parameters.get("est_card", 0.0)))
+            _push(buckets, "est_width_out", plan_parameters.get("est_width", 0.0))
+            _push(buckets, "est_loops_log", math.log1p(plan_parameters.get("est_loops", 0.0)))
+            # children
+            lpp = children[0].get("plan_parameters", {}) if len(children) > 0 else {}
+            rpp = (children[1].get("plan_parameters") or {}) if len(children) > 1 else {}
+            left_raw = float(lpp.get("est_card") or 0.0)
+            right_raw = float(rpp.get("est_card") or 0.0)
+            _push(buckets, "left_card_log", math.log1p(left_raw))
+            _push(buckets, "right_card_log", math.log1p(right_raw))
+            denom = max(left_raw * right_raw, 1.0)
+            _push(buckets, "join_sel_log", math.log1p((plan_parameters.get("est_card", 0.0)) / denom))
+            new_depth = depth + 1
             # Will recursively reach into the leaf nodes of the join tree.
             for ch in node.get("children"):
                 ch_op = ch.get("plan_parameters", {}).get("op_name")
@@ -108,17 +127,30 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
                     ops_list.append(ch_op)
 
         for child in (node.get("children", [])):
-            _gather_join_edges_from_node(child, edges_list, algos_list, ops_list)
+            return max(new_depth, _gather_join_edges_from_node(child, edges_list, algos_list, ops_list, new_depth))
+
+        return new_depth
+
+    for k, arr in buckets.items():
+        arr_sorted = sorted(arr)
+        n = len(arr_sorted)
+        mean = sum(arr_sorted) / n if n else 0.0
+        var = sum((x - mean) ** 2 for x in arr_sorted) / max(n - 1, 1)
+        std = var ** 0.5 or 1.0
+        p1 = arr_sorted[int(0.01 * (n - 1))] if n else 0.0
+        p99 = arr_sorted[int(0.99 * (n - 1))] if n else 1.0
+        norms[k] = {"mean": mean, "std": std, "p1": p1, "p99": p99}
 
     edges_seen: Set[Edge] = set()
     algos_seen: Set[str] = set()
     ops_seen: Set[str] = set()
-
+    md = 0
     for plan in parsed_plans:
         edges: List[Edge] = []
         algos: List[str] = []
         ops: List[str] = []
-        _gather_join_edges_from_node(plan, edges, algos, ops)
+        d = _gather_join_edges_from_node(plan, edges, algos, ops, 1)
+        md = max(d, md)
         edges_seen.update(edges)
         algos_seen.update(algos)
         ops_seen.update(ops)
@@ -131,7 +163,10 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     edge_to_id["<UNK_EDGE>"] = len(edge_to_id)
     algo_to_id["<UNK_ALG>"] = len(algo_to_id)
     op_to_id["<UNK_OP>"] = len(op_to_id)
-    return edge_to_id, algo_to_id, op_to_id
+    # print(edge_to_id, algo_to_id, {k: v for k, v in op_to_id.items() if k not in algo_to_id})
+    # print(buckets, "\n", "*********")
+    # print(norms)
+    return edge_to_id, algo_to_id, {k: v for k, v in op_to_id.items() if k not in algo_to_id}, norms, md
 
 
 def extract_features(file_path:str):
@@ -153,10 +188,11 @@ def extract_features(file_path:str):
     column_stats = json_data['database_stats']['column_stats']
     table_stats = json_data['database_stats']['table_stats']
     table_column_map = extract_table_column_map(column_stats, table_stats)
-    edge_to_id, algo_to_id, op_to_id = get_edge_dictionary_and_join_stats(plans)
+    # print(table_column_map)
+    return
+    edge_to_id, algo_to_id, op_to_id, norms, md = get_edge_dictionary_and_join_stats(plans[0:2])
     feature_vectors = []
-
-    for plan in plans[30:]:
+    for plan in plans[0:2]:
         # extract label
         label = plan.get("plan_runtime_ms")
 
@@ -167,7 +203,7 @@ def extract_features(file_path:str):
         # extract query identifier (to map this plan to the corresponding query)
         sql = plan.pop("sql")
         # extract feature information
-        features = extract_feature(plan, table_column_map, edge_to_id)
+        features = extract_feature(plan, table_column_map, edge_to_id, algo_to_id, op_to_id, norms, md)
         feature_vectors.append({
             'sql': sql,
             'features': features,
