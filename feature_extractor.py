@@ -8,7 +8,6 @@ class FeatureExtractor:
     def __init__(self, plan: Dict, table_stats: Dict[str, Dict[str, Any]]):
         self.plan = plan
         self.table_stats = table_stats
-        # print(table_stats)
 
     def extract_features_for_tables(self) -> Tuple[List[str], List[List[float]], Dict[str, int]]:
         """
@@ -17,6 +16,140 @@ class FeatureExtractor:
              tables   : List[str]          -> the table names in the same order as onehots rows
              tab2idx  : Dict[str, int]     -> global mapping used to build onehots (stable across queries)
            """
+
+        TABLE_SCALAR_KEYS = [
+            "log_rows",
+            "rows_frac",
+            "approx_size_mb",
+            "cols_count",
+            "avg_col_width",
+            "max_col_width",
+            "mean_null_frac",
+            "max_null_frac",
+            "mean_ndv_ratio",
+            "max_ndv_ratio",
+            "frac_high_ndv",
+            "mean_abs_corr",
+            "frac_numeric",
+            "frac_text",
+        ]
+
+        def _estimate_ndv(n_distinct, table_rows):
+            """
+            Postgres semantics: n_distinct < 0 means -1 * (ndv / table_rows).
+            Return an estimated NDV count (>=0).
+            """
+            if n_distinct is None:
+                return 0.0
+            nd = n_distinct
+            rows = max(table_rows, 0.0)
+            if nd >= 0:
+                return nd
+            # negative ratio * rows
+            return max(-nd * rows, 0.0)
+
+        def compute_table_scalars(table_rec: Dict[str, Any], total_rows_in_schema: float) -> Dict[str, float]:
+            cols = table_rec.get("columns")
+            rows = table_rec.get("tableSize")
+            rows_total = max(total_rows_in_schema, 1.0)
+
+            # widths
+            widths = [(c.get("avgWidth")) for c in cols if c.get("avgWidth") is not None]
+            avg_col_width = sum(widths) / len(widths) if widths else 0.0
+            max_col_width = max(widths) if widths else 0.0
+
+            # null fractions
+            nulls = [(c.get("nullFrac")) for c in cols if c.get("nullFrac") is not None]
+            mean_null_frac = sum(nulls) / len(nulls) if nulls else 0.0
+            max_null_frac = max(nulls) if nulls else 0.0
+
+            # NDV ratios
+            ndv_ratios = []
+            high_ndv_cnt = 0
+            for c in cols:
+                ndv = _estimate_ndv(c.get("nDistinct"), rows)
+                denom = max(rows, 1.0)
+                r = min(max(ndv / denom, 0.0), 1.0)  # clamp to [0,1]
+                ndv_ratios.append(r)
+                if r >= 0.5:
+                    high_ndv_cnt += 1
+            mean_ndv_ratio = sum(ndv_ratios) / len(ndv_ratios) if ndv_ratios else 0.0
+            max_ndv_ratio = max(ndv_ratios) if ndv_ratios else 0.0
+            frac_high_ndv = (high_ndv_cnt / len(ndv_ratios)) if ndv_ratios else 0.0
+
+            # correlations (abs)
+            corrs = [abs((c.get("correlation"))) for c in cols if c.get("correlation") is not None]
+            mean_abs_corr = sum(corrs) / len(corrs) if corrs else 0.0
+
+            # type mix
+            numeric_cnt = 0
+            text_cnt = 0
+            for c in cols:
+                dt = c.get("data_type")
+                if (dt.startswith(p) for p in ["int", "float", "double", "decimal", "numeric"]):
+                    numeric_cnt += 1
+                    break
+                if (dt.startswith(p) for p in ["varchar", "char", "text"]):
+                    text_cnt += 1
+                    break
+            ncols = len(cols) if cols else 0
+            frac_numeric = (numeric_cnt / ncols) if ncols else 0.0
+            frac_text = (text_cnt / ncols) if ncols else 0.0
+
+            # use avg_col_width * rows as rough payload size, bytes to MB
+            approx_size_mb = (avg_col_width * rows) / (1024.0 * 1024.0) if rows > 0 else 0.0
+
+            out = {
+                "log_rows": math.log1p(max(rows, 0.0)),
+                "rows_frac": rows / rows_total,
+                "approx_size_mb": approx_size_mb,
+                "cols_count": float(ncols),
+                "avg_col_width": avg_col_width,
+                "max_col_width": max_col_width,
+                "mean_null_frac": mean_null_frac,
+                "max_null_frac": max_null_frac,
+                "mean_ndv_ratio": mean_ndv_ratio,
+                "max_ndv_ratio": max_ndv_ratio,
+                "frac_high_ndv": frac_high_ndv,
+                "mean_abs_corr": mean_abs_corr,
+                "frac_numeric": frac_numeric,
+                "frac_text": frac_text,
+            }
+            return out
+
+        def get_table_norm_stats(tr):
+            buckets = {k: [] for k in TABLE_SCALAR_KEYS}
+            for t in self.table_stats.values():
+                scalars = compute_table_scalars(t, tr)
+                for k in TABLE_SCALAR_KEYS:
+                    buckets[k].append(scalars.get(k, 0.0))
+            nor: Dict[str, Dict[str, float]] = {}
+            for k, arr in buckets.items():
+                arr_sorted = sorted(arr)
+                n = max(len(arr_sorted), 1)
+                mean = sum(arr_sorted) / n
+                var = sum((x - mean) ** 2 for x in arr_sorted) / max(n - 1, 1)
+                std = (var ** 0.5) or 1.0
+                p1_idx = int(0.01 * (n - 1))
+                p99_idx = int(0.99 * (n - 1))
+                nor[k] = {
+                    "mean": mean,
+                    "std": std,
+                    "p1": arr_sorted[p1_idx],
+                    "p99": arr_sorted[p99_idx],
+                }
+            return nor
+
+        def _norm_val(x: float, key: str, nor: Dict[str, Dict[str, float]]) -> float:
+            spec = nor.get(key)
+            if not spec:
+                return x
+            p1, p99 = spec["p1"], spec["p99"]
+            mean, std = spec["mean"], spec["std"] or 1.0
+            if x < p1: x = p1
+            if x > p99: x = p99
+            return (x - mean) / std
+
 
         def _build_table_index_map() -> Dict[str, int]:
             """
@@ -43,13 +176,18 @@ class FeatureExtractor:
         _get_tables_used_in_plan(self.plan, tables_used_in_plan)
         feature_vectors = []
         feature_tables = []
+        total_rows = sum((t.get("tableSize")) for t in self.table_stats.values())
+        norms = get_table_norm_stats(total_rows)
         for table_in_plan in sorted(tables_used_in_plan):
             if table_in_plan not in tab2idx:
                 # handle case where table is not in table_stats
                 continue
             row = [0.0] * K
             row[tab2idx[table_in_plan]] = 1.0
-            feature_vectors.append(row)
+            rec = self.table_stats.get(table_in_plan)
+            raw = compute_table_scalars(rec, total_rows)
+            scalars_norm = [_norm_val(raw[k], k, norms) for k in TABLE_SCALAR_KEYS]
+            feature_vectors.append(row+scalars_norm)
             feature_tables.append(table_in_plan)
         return feature_tables, feature_vectors, tab2idx
 

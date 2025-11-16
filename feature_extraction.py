@@ -14,6 +14,7 @@ def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]], edge_to_i
     feature_tables, feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
     join_features = feature_extractor.extract_features_for_joins(edge_to_id, algo_to_id, op_to_id, norms, md)
 
+
     # DEMO Implementation: return the depth of the plan
     def compute_depth(node:Dict)->int:
         if 'children' not in node or not node['children']:
@@ -52,8 +53,7 @@ def extract_table_column_map(column_stats: List, table_stats: List)->Dict[str, D
         table_name = table_stat['relname']
         if table_name not in table_column_map:
             table_column_map[table_name] = {
-                "tableName": table_name,
-                "tableSize": table_stat["reltuples"],
+                "tableSize": table_stat["reltuples"] or 0.0,
                 "columns": []
             }
 
@@ -163,9 +163,6 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     edge_to_id["<UNK_EDGE>"] = len(edge_to_id)
     algo_to_id["<UNK_ALG>"] = len(algo_to_id)
     op_to_id["<UNK_OP>"] = len(op_to_id)
-    # print(edge_to_id, algo_to_id, {k: v for k, v in op_to_id.items() if k not in algo_to_id})
-    # print(buckets, "\n", "*********")
-    # print(norms)
     return edge_to_id, algo_to_id, {k: v for k, v in op_to_id.items() if k not in algo_to_id}, norms, md
 
 
@@ -188,11 +185,10 @@ def extract_features(file_path:str):
     column_stats = json_data['database_stats']['column_stats']
     table_stats = json_data['database_stats']['table_stats']
     table_column_map = extract_table_column_map(column_stats, table_stats)
-    # print(table_column_map)
-    return
-    edge_to_id, algo_to_id, op_to_id, norms, md = get_edge_dictionary_and_join_stats(plans[0:2])
+
+    edge_to_id, algo_to_id, op_to_id, norms, md = get_edge_dictionary_and_join_stats(plans)
     feature_vectors = []
-    for plan in plans[0:2]:
+    for plan in plans:
         # extract label
         label = plan.get("plan_runtime_ms")
 
