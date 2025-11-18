@@ -4,15 +4,18 @@ import os
 import re
 import argparse
 from collections import defaultdict
-from typing import Any, Dict, List, Tuple, Set
+from typing import Any, Dict, List, Tuple, Set, Optional
 
 from feature_extractor import FeatureExtractor
 
 
-def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]], edge_to_id, algo_to_id, op_to_id, norms, md)->Any:
+def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]], edge_to_id, algo_to_id, op_to_id, norms, md, col_to_id, pred_op_to_id, col_norms)->Any:
     feature_extractor = FeatureExtractor(plan, table_stats)
-    feature_tables, feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
+    table_features, feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
     join_features = feature_extractor.extract_features_for_joins(edge_to_id, algo_to_id, op_to_id, norms, md)
+    pred_features = feature_extractor.extract_feature_for_predicates(col_to_id, pred_op_to_id, col_norms)
+
+    return [feature_vectors, join_features, pred_features]
 
 
     # DEMO Implementation: return the depth of the plan
@@ -70,6 +73,7 @@ def extract_table_column_map(column_stats: List, table_stats: List)->Dict[str, D
     return table_column_map
 
 Edge = Tuple[str, str]
+
 def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     """
         One-time pass over training plans to build a stable join-edge vocabulary.
@@ -165,6 +169,173 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     op_to_id["<UNK_OP>"] = len(op_to_id)
     return edge_to_id, algo_to_id, {k: v for k, v in op_to_id.items() if k not in algo_to_id}, norms, md
 
+def build_predicate_vocabs(parsed_plans, column_stats):
+    """
+    Returns:
+      column_to_id : fixed mapping over schema columns (table_map) -> index in [0, |C|-1]
+      predop_to_id : observed predicate operators -> index; includes '<UNK_OP>'
+    """
+    # Columns: derive from schema (stable)
+    cols = []
+    for col in column_stats:
+        c = col['attname']
+        tn = col['tablename']
+        cols.append(f"{tn}.{c}")
+    column_to_id = {c: i for i, c in enumerate(sorted(set(cols)))}
+
+    # Operators: collect from filters and joins in training plans
+    ops_seen: Set[str] = set()
+    def dfs(node):
+        plan_parameters = node["plan_parameters"]
+        # filter operator
+        filt = plan_parameters.get("filter")
+        if isinstance(filt, dict):
+            op = filt.get("operator")
+            if isinstance(op, str) and op:
+                ops_seen.add(op.upper())
+                for fc in filt.get("children", []):
+                    ops_seen.add(fc.get("operator").upper())
+        # join operator (typically '=')
+        j = plan_parameters.get("join")
+        if isinstance(j, dict):
+            op = j.get("operator")
+            if isinstance(op, str) and op:
+                ops_seen.add(op.upper())
+        for ch in node.get("children", []):
+            dfs(ch)
+
+    for pl in parsed_plans:
+        dfs(pl)
+
+    op_list = sorted(ops_seen) + ["<UNK_OP>"]
+    predop_to_id = {name: i for i, name in enumerate(op_list)}
+    return column_to_id, predop_to_id
+
+def build_predicate_norm_stats(parsed_plans,column_to_id):
+    """
+    Scan training plans and collect numeric literal statistics per column:
+      stats[col_key] = {mean, std, p1, p99}
+    We look only at filter.literals (JOINs typically have no literal).
+    """
+
+    def _gather_atomic_filters(filt: Any, out: List[Dict[str, Any]]) -> None:
+        """
+        Append *atomic* filters to out.
+        Accepts:
+          - boolean dict: {"operator": "AND"/"OR"/"NOT", "children":[...]}
+          - atomic dict: {table_name, col_name, operator, literal, is_index_cond, ...}
+        """
+        if not isinstance(filt, dict):
+            return
+        op = (filt.get("operator") or "").upper()
+        if "children" in filt and isinstance(filt["children"], list) and op in {"AND", "OR", "NOT"}:
+            for ch in filt["children"]:
+                _gather_atomic_filters(ch, out)
+            return
+        # atomic
+        if "table_name" in filt and "col_name" in filt and "operator" in filt:
+            out.append(filt)
+
+    buckets: Dict[str, List[float]] = defaultdict(list)
+
+    def add(col_key: str, v: Optional[float]):
+        if v is None or col_key not in column_to_id:
+            return
+        buckets[col_key].append(float(v))
+
+    _NUM_RE = re.compile(r"^[\s'\"]*([-+]?\d+(\.\d+)?)[\s'\%]*$")  # matches numbers like '123', "12.3", %99
+    def _to_float_strict(x: Any) -> Optional[float]:
+        """Return float if x is numeric or a quoted/percent-wrapped numeric string; else None."""
+        if x is None:
+            return None
+        if isinstance(x, (int, float)):
+            return float(x)
+        if isinstance(x, str):
+            m = _NUM_RE.match(x)
+            if m:
+                try:
+                    return float(m.group(1))
+                except Exception:
+                    return None
+        return None
+
+    def handle_atomic(f: Dict[str, Any]):
+        t = f.get("table_name");
+        c = f.get("col_name")
+        if not (isinstance(t, str) and isinstance(c, str) and t and c):
+            return
+        key = f"{t}.{c}"
+        op = (f.get("operator") or "").upper()
+        lit = f.get("literal")
+
+        if op == "BETWEEN":
+            low = high = None
+            # common encodings: list/tuple; "a AND b"; "a..b"
+            if isinstance(lit, (list, tuple)) and len(lit) >= 2:
+                low, high = _to_float_strict(lit[0]), _to_float_strict(lit[1])
+            elif isinstance(lit, str):
+                if "AND" in lit:
+                    parts = [p.strip() for p in lit.split("AND", 1)]
+                    if len(parts) == 2:
+                        low, high = _to_float_strict(parts[0]), _to_float_strict(parts[1])
+                elif ".." in lit:
+                    parts = [p.strip() for p in lit.split("..", 1)]
+                    if len(parts) == 2:
+                        low, high = _to_float_strict(parts[0]), _to_float_strict(parts[1])
+            # record if parseable
+            if low is not None and high is not None:
+                if low > high:
+                    low, high = high, low
+                add(key, low)
+                add(key, high)
+
+        elif op == "IN":
+            if isinstance(lit, (list, tuple)):
+                for v in lit:
+                    add(key, _to_float_strict(v))
+            else:
+                add(key, _to_float_strict(lit))
+
+        else:
+            # unary/binary ops with single literal: =, <, <=, >, >=, <> ...
+            add(key, _to_float_strict(lit))
+
+    def dfs(node: Dict[str, Any]):
+        pp = node.get("plan_parameters", {})
+        filt = pp.get("filter")
+        if isinstance(filt, dict):
+            atoms: List[Dict[str, Any]] = []
+            _gather_atomic_filters(filt, atoms)
+            for af in atoms:
+                handle_atomic(af)
+        for ch in node.get("children", []):
+            dfs(ch)
+
+    # walk all training plans
+    for pl in parsed_plans:
+        dfs(pl)
+
+    # reduce to stats
+    stats: Dict[str, Dict[str, float]] = {}
+    for col, arr in buckets.items():
+        if not arr:
+            continue
+        arr_sorted = sorted(arr)
+        n = len(arr_sorted)
+        mean = sum(arr_sorted) / n
+        var = sum((x - mean) ** 2 for x in arr_sorted) / max(n - 1, 1)
+        std = math.sqrt(var)
+        if std < 1e-12:  # avoid zero-division later
+            std = 1.0
+        p1_idx = int(0.01 * (n - 1))
+        p99_idx = int(0.99 * (n - 1))
+        stats[col] = {
+            "mean": mean,
+            "std": std,
+            "p1": arr_sorted[p1_idx],
+            "p99": arr_sorted[p99_idx],
+        }
+    return stats
 
 def extract_features(file_path:str):
     """
@@ -185,8 +356,9 @@ def extract_features(file_path:str):
     column_stats = json_data['database_stats']['column_stats']
     table_stats = json_data['database_stats']['table_stats']
     table_column_map = extract_table_column_map(column_stats, table_stats)
-
     edge_to_id, algo_to_id, op_to_id, norms, md = get_edge_dictionary_and_join_stats(plans)
+    col_to_id, preop_to_id = build_predicate_vocabs(plans, column_stats)
+    pred_norm_stats = build_predicate_norm_stats(plans,col_to_id)
     feature_vectors = []
     for plan in plans:
         # extract label
@@ -199,7 +371,13 @@ def extract_features(file_path:str):
         # extract query identifier (to map this plan to the corresponding query)
         sql = plan.pop("sql")
         # extract feature information
-        features = extract_feature(plan, table_column_map, edge_to_id, algo_to_id, op_to_id, norms, md)
+        features = extract_feature(plan, table_column_map, edge_to_id, algo_to_id,
+                                   op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats)
+        feature_vectors.append({
+            'sql': sql,
+            'features': features,
+            'label': label
+        })
         feature_vectors.append({
             'sql': sql,
             'features': features,

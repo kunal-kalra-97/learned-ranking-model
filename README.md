@@ -23,7 +23,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Extract features for the baseline model
-python feature_extraction.py --file_path plans/train_plans2.json --output_path datasets/train_features.json
+python feature_extraction.py --file_path plans/train_plans1.json --output_path datasets/train_features.json
 python feature_extraction.py --file_path plans/test_plans.json --output_path datasets/test_features.json
 
 # Train and evaluate the query optimizer

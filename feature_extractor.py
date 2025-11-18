@@ -1,5 +1,5 @@
 import math
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Optional
 
 Edge = Tuple[str, str]
 
@@ -315,3 +315,175 @@ class FeatureExtractor:
         edges = []
         _gather_join_edges_from_node(self.plan, edges)
         return edges
+
+    def extract_feature_for_predicates(
+            self,
+            column_to_id: Dict[str, int],  # frozen from schema
+            predop_to_id: Dict[str, int],  # frozen from train (+ "<UNK_OP>")
+            col_norms: Dict[str, Dict[str, float]],  # per-column stats {mean,std,p1,p99}
+    ) -> List[Any]:
+        """
+        Returns n × Fp matrix with one row per *atomic* predicate:
+          [ one_hot_colA(|C|) | one_hot_colB(|C|) | one_hot_op(|P|)
+          | val_low_norm, val_high_norm | is_join_pred, is_index_cond ]
+        - Flattens boolean filters with 'children' (AND/OR/NOT) into atomic predicates.
+        - Keeps join predicates as before (two columns, operator from join.operator, values = 0,0).
+        """
+
+        C, P = len(column_to_id), len(predop_to_id)
+        rows: List[Any] = []
+
+        def _clip_z(x: float, spec: Dict[str, float]) -> float:
+            # spec keys: mean, std, p1, p99
+            p1, p99 = spec.get("p1", x), spec.get("p99", x)
+            mean, std = spec.get("mean", 0.0), spec.get("std", 1.0) or 1.0
+            if x < p1: x = p1
+            if x > p99: x = p99
+            return (x - mean) / std
+
+        def norm_val(col_key, v: Optional[float]) -> float:
+            if v is None:
+                return 0.0
+            spec = col_norms.get(col_key)
+            return _clip_z(float(v), spec) if spec else 0.0
+
+        def _to_float(x: Any):
+            try:
+                return float(x)
+            except Exception:
+                return None
+
+        def _one_hot(idx: int, size: int) -> List[float]:
+            row = [0.0] * size
+            if 0 <= idx < size:
+                row[idx] = 1.0
+            return row
+
+        def _gather_atomic_filters(filt: Any, out: List[Dict[str, Any]]) -> None:
+            """
+            Append *atomic* filter dicts to `out`.
+            Accepts either:
+              - atomic dict with keys {table_name, col_name, operator, literal, is_index_cond, ...}
+              - boolean dict: {"operator": "AND"/"OR"/"NOT", "children": [ ... ]}
+            """
+            if not isinstance(filt, dict):
+                return
+
+            # Boolean node with children
+            op = (filt.get("operator") or "").upper()
+            if "children" in filt and isinstance(filt["children"], list) and op in {"AND", "OR", "NOT"}:
+                for child in filt["children"]:
+                    _gather_atomic_filters(child, out)
+                return
+
+            # Atomic node (the shape from your second example)
+            # Expected keys: table_name, col_name, operator, literal, is_index_cond
+            if "table_name" in filt and "col_name" in filt and "operator" in filt:
+                out.append(filt)
+
+        def encode_atomic_filter(f: Dict[str, Any]):
+            # Build column key
+            t = f.get("table_name")
+            c = f.get("col_name")
+            if not (isinstance(t, str) and isinstance(c, str) and t and c):
+                return
+            colA = f"{t}.{c}"
+            a_idx = column_to_id.get(colA)
+            if a_idx is None:
+                return  # unknown column in schema
+
+            # Operator one-hot
+            op = (f.get("operator") or "").upper()
+            p_idx = predop_to_id.get(op, predop_to_id.get("<UNK_OP>", 0))
+            op_hot = _one_hot(p_idx, P)
+
+            # Numeric values (two slots). Non-numeric → 0,0.
+            lit = f.get("literal")
+            # Handle BETWEEN/IN if your dataset sometimes places them as atomic (rare); otherwise treat as unary
+            if op == "BETWEEN":
+                low = high = None
+                if isinstance(lit, (list, tuple)) and len(lit) >= 2:
+                    low, high = _to_float(lit[0]), _to_float(lit[1])
+                elif isinstance(lit, str) and "AND" in lit:
+                    parts = [p.strip() for p in lit.split("AND", 1)]
+                    if len(parts) == 2:
+                        low, high = _to_float(parts[0]), _to_float(parts[1])
+                if low is not None and high is not None and low > high:
+                    low, high = high, low
+                v1 = norm_val(colA, low)
+                v2 = norm_val(colA, high)
+            elif op == "IN":
+                v1 = v2 = 0.0
+                if isinstance(lit, (list, tuple)) and len(lit) > 0:
+                    nums = [v for v in (_to_float(x) for x in lit) if v is not None]
+                    if nums:
+                        m = sum(nums) / len(nums)
+                        v1 = v2 = norm_val(colA, m)
+                else:
+                    v = _to_float(lit)
+                    v1 = v2 = norm_val(colA, v)
+            else:
+                v = _to_float(lit)
+                v1 = v2 = norm_val(colA, v)
+
+            is_join_pred = 0.0
+            is_index_cond = 1.0 if bool(f.get("is_index_cond")) else 0.0
+            row = (
+                    _one_hot(a_idx, C) + [0.0] * C +  # colB empty
+                    op_hot +
+                    [v1, v2] +
+                    [is_join_pred, is_index_cond]
+            )
+            rows.append(row)
+
+        def encode_join(pp: Dict[str, Any]):
+            j = pp.get("join")
+            if not isinstance(j, dict):
+                return
+            t1 = j.get("table_name1") or j.get("left_table")
+            c1 = j.get("column_name1") or j.get("col_name1") or j.get("col1")
+            t2 = j.get("table_name2") or j.get("right_table")
+            c2 = j.get("column_name2") or j.get("col_name2") or j.get("col2")
+            if not (isinstance(t1, str) and isinstance(c1, str) and isinstance(t2, str) and isinstance(c2, str)):
+                return
+            colA = f"{t1}.{c1}"
+            colB = f"{t2}.{c2}"
+            a_idx = column_to_id.get(colA)
+            b_idx = column_to_id.get(colB)
+            if a_idx is None or b_idx is None:
+                return
+
+            op = (j.get("operator") or "=").upper()
+            p_idx = predop_to_id.get(op, predop_to_id.get("<UNK_OP>", 0))
+            op_hot = _one_hot(p_idx, P)
+
+            is_join_pred = 1.0
+            is_index_cond = 1.0 if bool(j.get("is_index_cond")) else 0.0
+
+            row = (
+                    _one_hot(a_idx, C) +
+                    _one_hot(b_idx, C) +
+                    op_hot +
+                    [0.0, 0.0] +
+                    [is_join_pred, is_index_cond]
+            )
+            rows.append(row)
+
+        def dfs(node: Dict[str, Any]):
+            pp = node.get("plan_parameters", {})
+
+            # 1) Filters — handle both shapes
+            filt = pp.get("filter")
+            if isinstance(filt, dict):
+                atoms: List[Dict[str, Any]] = []
+                _gather_atomic_filters(filt, atoms)
+                for af in atoms:
+                    encode_atomic_filter(af)
+
+            encode_join(pp)
+
+            for ch in node.get("children", []):
+                dfs(ch)
+
+        dfs(self.plan)
+        return rows
