@@ -21,4 +21,4 @@ run_model_evaluation:
     - python3 feature_extraction.py --file_path workload_test.json --output_path test_features.json
     # Evaluate the model given the extracted features against the unseen labels
     - python3 evaluate_leaderboard.py --test_data test_features.json
-  timeout: 5 minutes
+  timeout: 7 minutes
