@@ -297,16 +297,15 @@ class FeatureExtractor:
                     ic = join.get("is_index_cond")
                     index_cond_flag = 1.0 if (isinstance(ic, (bool, int)) and bool(ic)) else 0.0
 
-                    r = [
-                        onehot_edge
+                    r = (onehot_edge
                         + onehot_alg
                         + onehot_left
                         + onehot_right
                         + [raw_depth_norm, is_root_join, left_deep_hint]
                         + [est_card_out_log, est_width_out, est_loops_log]
                         + [left_card_log, right_card_log, join_sel_log]
-                        + [index_cond_flag]
-                    ]
+                        + [index_cond_flag])
+
                     out.append(r)
 
             for child in children:

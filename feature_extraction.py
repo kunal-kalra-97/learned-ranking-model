@@ -360,7 +360,8 @@ def extract_features(file_path:str):
     col_to_id, preop_to_id = build_predicate_vocabs(plans, column_stats)
     pred_norm_stats = build_predicate_norm_stats(plans,col_to_id)
     feature_vectors = []
-    for plan in plans:
+    max_table, max_join, max_pred = 0, 0, 0
+    for plan in plans[:2]:
         # extract label
         label = plan.get("plan_runtime_ms")
 
@@ -373,18 +374,18 @@ def extract_features(file_path:str):
         # extract feature information
         features = extract_feature(plan, table_column_map, edge_to_id, algo_to_id,
                                    op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats)
-        feature_vectors.append({
-            'sql': sql,
-            'features': features,
-            'label': label
-        })
-        feature_vectors.append({
-            'sql': sql,
-            'features': features,
-            'label': label
-        })
 
-    return feature_vectors
+        max_table = max(max_table, len(features[0]))
+        max_join = max(max_join, len(features[1]))
+        max_pred = max(max_pred, len(features[2]))
+        feature_vectors.append({
+            'sql': sql,
+            'features': features,
+            'label': label
+        })
+    print(max_table, max_join, max_pred)
+
+    return feature_vectors, (max_table, max_join, max_pred)
 
 def save_data(file_path, data):
     """
@@ -411,10 +412,9 @@ def main():
     parser.add_argument("--output_path", type=str, help="Path to the output features JSON file", required=True)
     args = parser.parse_args()
 
-    feature_vectors = extract_features(args.file_path)
+    feature_vectors, max_values = extract_features(args.file_path)
 
     save_data(args.output_path, feature_vectors)
-
     print("Feature vectors saved successfully!")
 
 if __name__ == "__main__":

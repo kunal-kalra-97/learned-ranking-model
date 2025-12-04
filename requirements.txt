@@ -3,3 +3,4 @@ joblib
 requests
 pandas
 tqdm
+pytorch

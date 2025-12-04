@@ -52,6 +52,11 @@ def main(args):
 
     # extract info
     train_sql = train_df['sql'].to_numpy()
+    for features in train_df['features']:
+        print(len(features[0]), "->", len(features[0][0]), len(features[0][1]),
+              len(features[1]), "->", len(features[1][0])
+              , len(features[2]), "->", len(features[2][0]), len(features[2][1]), len(features[2][2]))
+
     train_features = np.array(train_df['features'].tolist())
     train_runtimes = train_df['label'].to_numpy()
 
