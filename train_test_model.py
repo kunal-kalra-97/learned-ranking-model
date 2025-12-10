@@ -4,8 +4,12 @@ import pandas as pd
 import joblib
 import argparse
 from evaluate_model import evaluate_model
+from model.data_utils import make_mscn_batch, infer_feature_dims_from_dataset
+from model.mscn_dataset import make_dataloaders
 from model.ranking_model_wrapper import RankingModelWrapper
 import numpy as np
+
+from model.train_eval import train_model
 
 
 def load_features_from_file(file_path):
@@ -49,17 +53,46 @@ def main(args):
     # convert to pd dataframe
     train_df = pd.DataFrame(data)
     test_df = pd.DataFrame(test_data)
+    batch_samples = train_df['features'].tolist()
+    setx = set()
+    for batch in batch_samples:
+        for feat in batch:
+            for ind in feat:
+                if len(ind) not in setx:
+                    print(ind)
+                setx.add(len(ind))
+    print(setx)
+    setx = set()
+    for batch in test_df['features'].tolist():
+        for feat in batch:
+            for ind in feat:
+                if len(ind) not in setx:
+                    print(ind)
+                setx.add(len(ind))
+    print(setx)
+    batch_labels = train_df['label'].tolist()
+    ft, fj, fp = infer_feature_dims_from_dataset(batch_samples)
+    print(f"ft={ft}, fj={fj}, fp={fp}")
 
-    # extract info
-    train_sql = train_df['sql'].to_numpy()
-    for features in train_df['features']:
-        print(len(features[0]), "->", len(features[0][0]), len(features[0][1]),
-              len(features[1]), "->", len(features[1][0])
-              , len(features[2]), "->", len(features[2][0]), len(features[2][1]), len(features[2][2]))
+    # tables_X, tables_m, joins_X, joins_m, preds_X, preds_m, y = make_mscn_batch(
+    #     batch_samples,
+    #     batch_labels,
+    #     ft=ft, fj=fj, fp=fp
+    # )
+    #
+    # print("tables_X", tables_X.shape, "tables_m", tables_m.shape)
+    # print("joins_X ", joins_X.shape, "joins_m ", joins_m.shape)
+    # print("preds_X ", preds_X.shape, "preds_m ", preds_m.shape)
+    # print("y       ", y.shape)
 
-    train_features = np.array(train_df['features'].tolist())
-    train_runtimes = train_df['label'].to_numpy()
+    # # extract info
+    # train_sql = train_df['sql'].to_numpy()
+    #
+    # train_features = np.array(train_df['features'].tolist())
+    # train_runtimes = train_df['label'].to_numpy()
 
+    train_model(feature_dims=(ft, fj, fp))
+    return
     # Initialize and train the model
     model = RankingModelWrapper()
     model.fit(train_sql, train_features, train_runtimes)

@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import Any, Dict, List, Tuple, Set, Optional
 
 from feature_extractor import FeatureExtractor
+from model.data_utils import save_stats, load_stats
 
 
 def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]], edge_to_id, algo_to_id, op_to_id, norms, md, col_to_id, pred_op_to_id, col_norms)->Any:
@@ -91,7 +92,6 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     buckets = defaultdict(list)
     norms = {}
 
-
     def _gather_join_edges_from_node(node: Dict, edges_list: List[Edge], algos_list: List[str], ops_list: List[str], depth = 0):
         """
         DFS a single plan tree; append one edge per *join node* found in node['plan_parameters'].
@@ -129,21 +129,13 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
                 ch_op = ch.get("plan_parameters", {}).get("op_name")
                 if isinstance(ch_op, str) and ch_op:
                     ops_list.append(ch_op)
-
+        max_depth_here = new_depth
         for child in (node.get("children", [])):
-            return max(new_depth, _gather_join_edges_from_node(child, edges_list, algos_list, ops_list, new_depth))
+            child_depth = _gather_join_edges_from_node(child, edges_list, algos_list, ops_list, new_depth)
+            max_depth_here =  max(new_depth, child_depth)
 
-        return new_depth
+        return max_depth_here
 
-    for k, arr in buckets.items():
-        arr_sorted = sorted(arr)
-        n = len(arr_sorted)
-        mean = sum(arr_sorted) / n if n else 0.0
-        var = sum((x - mean) ** 2 for x in arr_sorted) / max(n - 1, 1)
-        std = var ** 0.5 or 1.0
-        p1 = arr_sorted[int(0.01 * (n - 1))] if n else 0.0
-        p99 = arr_sorted[int(0.99 * (n - 1))] if n else 1.0
-        norms[k] = {"mean": mean, "std": std, "p1": p1, "p99": p99}
 
     edges_seen: Set[Edge] = set()
     algos_seen: Set[str] = set()
@@ -161,6 +153,15 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     edge_list = sorted(edges_seen)
     algo_list = sorted(algos_seen)
     op_list  = sorted(ops_seen)
+    for k, arr in buckets.items():
+        arr_sorted = sorted(arr)
+        n = len(arr_sorted)
+        mean = sum(arr_sorted) / n if n else 0.0
+        var = sum((x - mean) ** 2 for x in arr_sorted) / max(n - 1, 1)
+        std = var ** 0.5 or 1.0
+        p1 = arr_sorted[int(0.01 * (n - 1))] if n else 0.0
+        p99 = arr_sorted[int(0.99 * (n - 1))] if n else 1.0
+        norms[k] = {"mean": mean, "std": std, "p1": p1, "p99": p99}
     edge_to_id = {edge: i for i, edge in enumerate(edge_list)}
     algo_to_id = {algo: i for i, algo in enumerate(algo_list)}
     op_to_id = {op: i for i, op in enumerate(op_list)}
@@ -337,11 +338,12 @@ def build_predicate_norm_stats(parsed_plans,column_to_id):
         }
     return stats
 
-def extract_features(file_path:str):
+def extract_features(file_path:str, build_stats: bool = False):
     """
     Extracts features and labels from the provided JSON file.
 
     Parameters:
+        build_stats (bool): If True, saves the computed statistics to disk:
         file_path (str): Path to the input JSON file.
         estimated_regex (re.Pattern): Regular expression to match and extract estimated values.
 
@@ -352,16 +354,38 @@ def extract_features(file_path:str):
         json_data = json.load(file)
     
     plans = json_data['parsed_plans']
-
-    column_stats = json_data['database_stats']['column_stats']
-    table_stats = json_data['database_stats']['table_stats']
-    table_column_map = extract_table_column_map(column_stats, table_stats)
-    edge_to_id, algo_to_id, op_to_id, norms, md = get_edge_dictionary_and_join_stats(plans)
-    col_to_id, preop_to_id = build_predicate_vocabs(plans, column_stats)
-    pred_norm_stats = build_predicate_norm_stats(plans,col_to_id)
+    if build_stats:
+        column_stats = json_data['database_stats']['column_stats']
+        table_stats = json_data['database_stats']['table_stats']
+        table_column_map = extract_table_column_map(column_stats, table_stats)
+        edge_to_id, algo_to_id, op_to_id, norms, md = get_edge_dictionary_and_join_stats(plans)
+        col_to_id, preop_to_id = build_predicate_vocabs(plans, column_stats)
+        pred_norm_stats = build_predicate_norm_stats(plans, col_to_id)
+        save_stats({
+            'table_column_map': table_column_map,
+            'edge_to_id': edge_to_id,
+            'algo_to_id': algo_to_id,
+            'op_to_id': op_to_id,
+            'norms': norms,
+            'md': md,
+            'col_to_id': col_to_id,
+            'pred_norm_stats': pred_norm_stats,
+            'preop_to_id': preop_to_id,
+        }, "stats.json")
+    else:
+        stats = load_stats("stats.json")
+        table_column_map = stats["table_column_map"]
+        edge_to_id = stats["edge_to_id"]
+        algo_to_id = stats["algo_to_id"]
+        op_to_id = stats["op_to_id"]
+        norms = stats["norms"]
+        md = stats["md"]
+        col_to_id = stats["col_to_id"]
+        pred_norm_stats = stats["pred_norm_stats"]
+        preop_to_id = stats["preop_to_id"]
+        print(table_column_map, edge_to_id, algo_to_id, op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats)
     feature_vectors = []
-    max_table, max_join, max_pred = 0, 0, 0
-    for plan in plans[:2]:
+    for plan in plans:
         # extract label
         label = plan.get("plan_runtime_ms")
 
@@ -374,18 +398,13 @@ def extract_features(file_path:str):
         # extract feature information
         features = extract_feature(plan, table_column_map, edge_to_id, algo_to_id,
                                    op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats)
-
-        max_table = max(max_table, len(features[0]))
-        max_join = max(max_join, len(features[1]))
-        max_pred = max(max_pred, len(features[2]))
         feature_vectors.append({
             'sql': sql,
             'features': features,
-            'label': label
+            'label': math.log1p(label)
         })
-    print(max_table, max_join, max_pred)
 
-    return feature_vectors, (max_table, max_join, max_pred)
+    return feature_vectors
 
 def save_data(file_path, data):
     """
@@ -410,9 +429,10 @@ def main():
     parser = argparse.ArgumentParser(description="Extract features from the provided JSON file.")
     parser.add_argument("--file_path", type=str, help="Path to the input workload JSON file.", required=True)
     parser.add_argument("--output_path", type=str, help="Path to the output features JSON file", required=True)
+    parser.add_argument("--build_stats", action="store_true", help="Build statistics for the feature extractor.")
     args = parser.parse_args()
-
-    feature_vectors, max_values = extract_features(args.file_path)
+    print(args.build_stats)
+    feature_vectors = extract_features(args.file_path, args.build_stats)
 
     save_data(args.output_path, feature_vectors)
     print("Feature vectors saved successfully!")
