@@ -8,6 +8,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Set, Optional
 
+import orjson
+
 from feature_extractor import FeatureExtractor
 from model.data_utils import save_stats, load_stats
 
@@ -444,8 +446,8 @@ def save_data(file_path, data):
     dir_name = os.path.dirname(file_path)
     if dir_name:
         os.makedirs(dir_name, exist_ok=True)
-    with open(file_path, 'w') as file:
-        json.dump(data, file)
+    with open(file_path, 'wb') as file:
+        file.write(orjson.dumps(data))
 
 def main():
     parser = argparse.ArgumentParser(description="Extract features from the provided JSON file.")
