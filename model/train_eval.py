@@ -67,7 +67,11 @@ def evaluate(model, loader, device):
 
 
 def train_model(batch_size=64, epochs=20, lr=1e-3, feature_dims: Tuple[int, int, int] = None):
-    device = torch.device("mps" if torch.mps.is_available() else "cpu")
+    device = torch.device("cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.mps.is_available():
+        device = torch.device("mps")
 
     Ft, Fj, Fp = feature_dims
     train_loader, test_loader = make_dataloaders(

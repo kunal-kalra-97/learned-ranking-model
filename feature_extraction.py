@@ -4,6 +4,7 @@ import os
 import re
 import argparse
 from collections import defaultdict
+from pathlib import Path
 from typing import Any, Dict, List, Tuple, Set, Optional
 
 from feature_extractor import FeatureExtractor
@@ -373,7 +374,9 @@ def extract_features(file_path:str, build_stats: bool = False):
             'preop_to_id': preop_to_id,
         }, "stats.json")
     else:
-        stats = load_stats("stats.json")
+        full_path = Path(__file__).resolve().parent / "stats.json"
+        print(full_path)
+        stats = load_stats(full_path)
         table_column_map = stats["table_column_map"]
         edge_to_id = stats["edge_to_id"]
         algo_to_id = stats["algo_to_id"]
@@ -383,7 +386,6 @@ def extract_features(file_path:str, build_stats: bool = False):
         col_to_id = stats["col_to_id"]
         pred_norm_stats = stats["pred_norm_stats"]
         preop_to_id = stats["preop_to_id"]
-        print(table_column_map, edge_to_id, algo_to_id, op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats)
     feature_vectors = []
     for plan in plans:
         # extract label
