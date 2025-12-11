@@ -4,4 +4,3 @@ requests
 pandas
 tqdm
 torch
-pytorch
