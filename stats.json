@@ -1,0 +1,1802 @@
+{
+  "table_column_map": {
+    "aka_name": {
+      "tableSize": 901343.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.9999998
+        },
+        {
+          "colName": "person_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -0.43006825,
+          "correlation": 0.038621996
+        },
+        {
+          "colName": "name",
+          "dataType": "character varying",
+          "avgWidth": 16,
+          "nullFrac": 0.0,
+          "nDistinct": -0.5374358,
+          "correlation": 0.47447315
+        },
+        {
+          "colName": "imdb_index",
+          "dataType": "character varying",
+          "avgWidth": 0,
+          "nullFrac": 1.0,
+          "nDistinct": 0.0,
+          "correlation": null
+        },
+        {
+          "colName": "name_pcode_cf",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.0001,
+          "nDistinct": 12222.0,
+          "correlation": 0.47200483
+        },
+        {
+          "colName": "name_pcode_nf",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.1222,
+          "nDistinct": 10462.0,
+          "correlation": 0.024161777
+        },
+        {
+          "colName": "surname_pcode",
+          "dataType": "character varying",
+          "avgWidth": 4,
+          "nullFrac": 0.30946666,
+          "nDistinct": 2596.0,
+          "correlation": 0.5393182
+        },
+        {
+          "colName": "md5sum",
+          "dataType": "character varying",
+          "avgWidth": 33,
+          "nullFrac": 0.0,
+          "nDistinct": -0.5374358,
+          "correlation": 0.0022635295
+        }
+      ]
+    },
+    "aka_title": {
+      "tableSize": 361472.0,
+      "columns": [
+        {
+          "colName": "title",
+          "dataType": "character varying",
+          "avgWidth": 21,
+          "nullFrac": 0.0,
+          "nDistinct": -0.7133803,
+          "correlation": 0.11723035
+        },
+        {
+          "colName": "production_year",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0083,
+          "nDistinct": 123.0,
+          "correlation": -0.092270166
+        },
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.9835627
+        },
+        {
+          "colName": "movie_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -0.39569592,
+          "correlation": 0.86910737
+        },
+        {
+          "colName": "imdb_index",
+          "dataType": "character varying",
+          "avgWidth": 2,
+          "nullFrac": 0.9921,
+          "nDistinct": 4.0,
+          "correlation": 0.40223813
+        },
+        {
+          "colName": "kind_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 6.0,
+          "correlation": 0.48188516
+        },
+        {
+          "colName": "phonetic_code",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.0137,
+          "nDistinct": 12114.0,
+          "correlation": 0.14450641
+        },
+        {
+          "colName": "episode_of_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.992,
+          "nDistinct": 295.0,
+          "correlation": -0.0824398
+        },
+        {
+          "colName": "season_nr",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.99263334,
+          "nDistinct": 23.0,
+          "correlation": 0.4575161
+        },
+        {
+          "colName": "episode_nr",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.99263334,
+          "nDistinct": 41.0,
+          "correlation": 0.12405639
+        },
+        {
+          "colName": "note",
+          "dataType": "character varying",
+          "avgWidth": 22,
+          "nullFrac": 0.0799,
+          "nDistinct": 1211.0,
+          "correlation": 0.06746185
+        },
+        {
+          "colName": "md5sum",
+          "dataType": "character varying",
+          "avgWidth": 33,
+          "nullFrac": 0.0,
+          "nDistinct": -0.9282877,
+          "correlation": -0.0009495666
+        }
+      ]
+    },
+    "cast_info": {
+      "tableSize": 36244344.0,
+      "columns": [
+        {
+          "colName": "person_role_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.5159,
+          "nDistinct": 22644.0,
+          "correlation": 0.43847132
+        },
+        {
+          "colName": "note",
+          "dataType": "character varying",
+          "avgWidth": 18,
+          "nullFrac": 0.6075,
+          "nDistinct": 3828.0,
+          "correlation": 0.04619052
+        },
+        {
+          "colName": "role_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 11.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "person_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 70789.0,
+          "correlation": 0.7009892
+        },
+        {
+          "colName": "movie_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 974148.0,
+          "correlation": 0.0018360945
+        },
+        {
+          "colName": "nr_order",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.70316666,
+          "nDistinct": 154.0,
+          "correlation": 0.028191954
+        }
+      ]
+    },
+    "char_name": {
+      "tableSize": 3140339.0,
+      "columns": [
+        {
+          "colName": "name",
+          "dataType": "character varying",
+          "avgWidth": 16,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.019838039
+        },
+        {
+          "colName": "imdb_index",
+          "dataType": "character varying",
+          "avgWidth": 0,
+          "nullFrac": 1.0,
+          "nDistinct": 0.0,
+          "correlation": null
+        },
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.99902
+        },
+        {
+          "colName": "imdb_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 1.0,
+          "nDistinct": 0.0,
+          "correlation": null
+        },
+        {
+          "colName": "name_pcode_nf",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.0002,
+          "nDistinct": 12299.0,
+          "correlation": 0.02188885
+        },
+        {
+          "colName": "surname_pcode",
+          "dataType": "character varying",
+          "avgWidth": 4,
+          "nullFrac": 0.1489,
+          "nDistinct": 4967.0,
+          "correlation": 0.037643168
+        },
+        {
+          "colName": "md5sum",
+          "dataType": "character varying",
+          "avgWidth": 33,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": -0.00059284386
+        }
+      ]
+    },
+    "comp_cast_type": {
+      "tableSize": 4.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "kind",
+          "dataType": "character varying",
+          "avgWidth": 9,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.4
+        }
+      ]
+    },
+    "company_name": {
+      "tableSize": 234997.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.89025456
+        },
+        {
+          "colName": "name",
+          "dataType": "character varying",
+          "avgWidth": 19,
+          "nullFrac": 0.0,
+          "nDistinct": -0.8910454,
+          "correlation": -0.0022852977
+        },
+        {
+          "colName": "imdb_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 1.0,
+          "nDistinct": 0.0,
+          "correlation": null
+        },
+        {
+          "colName": "md5sum",
+          "dataType": "character varying",
+          "avgWidth": 33,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": -0.00585795
+        },
+        {
+          "colName": "country_code",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.0998,
+          "nDistinct": 161.0,
+          "correlation": 0.21352808
+        },
+        {
+          "colName": "name_pcode_nf",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.0002,
+          "nDistinct": 11477.0,
+          "correlation": -0.0020044018
+        },
+        {
+          "colName": "name_pcode_sf",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.0998,
+          "nDistinct": 10655.0,
+          "correlation": -0.0016163231
+        }
+      ]
+    },
+    "company_type": {
+      "tableSize": 4.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "kind",
+          "dataType": "character varying",
+          "avgWidth": 21,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.4
+        }
+      ]
+    },
+    "complete_cast": {
+      "tableSize": 135086.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "movie_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -0.6210044,
+          "correlation": 0.23404336
+        },
+        {
+          "colName": "subject_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 2.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "status_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 2.0,
+          "correlation": 0.66359335
+        }
+      ]
+    },
+    "info_type": {
+      "tableSize": 113.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "info",
+          "dataType": "character varying",
+          "avgWidth": 14,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.100979775
+        }
+      ]
+    },
+    "keyword": {
+      "tableSize": 134170.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.9945898
+        },
+        {
+          "colName": "keyword",
+          "dataType": "character varying",
+          "avgWidth": 16,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.02749157
+        },
+        {
+          "colName": "phonetic_code",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.00026666667,
+          "nDistinct": 10499.0,
+          "correlation": 0.0320707
+        }
+      ]
+    },
+    "kind_type": {
+      "tableSize": 7.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "kind",
+          "dataType": "character varying",
+          "avgWidth": 10,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": -0.071428575
+        }
+      ]
+    },
+    "link_type": {
+      "tableSize": 18.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "link",
+          "dataType": "character varying",
+          "avgWidth": 12,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": -0.021671826
+        }
+      ]
+    },
+    "pg_statistic": {
+      "tableSize": 517.0,
+      "columns": []
+    },
+    "pg_type": {
+      "tableSize": 655.0,
+      "columns": []
+    },
+    "movie_companies": {
+      "tableSize": 2609129.0,
+      "columns": [
+        {
+          "colName": "company_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 19778.0,
+          "correlation": 0.5898951
+        },
+        {
+          "colName": "note",
+          "dataType": "character varying",
+          "avgWidth": 24,
+          "nullFrac": 0.4914,
+          "nDistinct": 5775.0,
+          "correlation": 0.19954453
+        },
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.99999964
+        },
+        {
+          "colName": "movie_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -0.19509462,
+          "correlation": 0.44746318
+        },
+        {
+          "colName": "company_type_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 2.0,
+          "correlation": 1.0
+        }
+      ]
+    },
+    "movie_info_idx": {
+      "tableSize": 1380035.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "movie_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -0.3286786,
+          "correlation": 0.99951255
+        },
+        {
+          "colName": "info_type_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 4.0,
+          "correlation": 0.3351815
+        },
+        {
+          "colName": "info",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.0,
+          "nDistinct": 11077.0,
+          "correlation": -0.0500912
+        },
+        {
+          "colName": "note",
+          "dataType": "character varying",
+          "avgWidth": 0,
+          "nullFrac": 1.0,
+          "nDistinct": 0.0,
+          "correlation": null
+        }
+      ]
+    },
+    "movie_keyword": {
+      "tableSize": 4523930.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "movie_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 96802.0,
+          "correlation": 0.99976915
+        },
+        {
+          "colName": "keyword_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 15024.0,
+          "correlation": 0.017906116
+        }
+      ]
+    },
+    "movie_link": {
+      "tableSize": 29997.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "movie_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -0.21372136,
+          "correlation": 0.99249345
+        },
+        {
+          "colName": "linked_movie_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -0.5390206,
+          "correlation": -0.03230188
+        },
+        {
+          "colName": "link_type_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 16.0,
+          "correlation": 0.16407862
+        }
+      ]
+    },
+    "name": {
+      "tableSize": 4167491.0,
+      "columns": [
+        {
+          "colName": "name_pcode_cf",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.0,
+          "nDistinct": 12219.0,
+          "correlation": 0.26488084
+        },
+        {
+          "colName": "name_pcode_nf",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.024533333,
+          "nDistinct": 10663.0,
+          "correlation": 0.01673764
+        },
+        {
+          "colName": "surname_pcode",
+          "dataType": "character varying",
+          "avgWidth": 4,
+          "nullFrac": 0.22073333,
+          "nDistinct": 2704.0,
+          "correlation": 0.26202667
+        },
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.9999996
+        },
+        {
+          "colName": "name",
+          "dataType": "character varying",
+          "avgWidth": 15,
+          "nullFrac": 0.0,
+          "nDistinct": -0.44045284,
+          "correlation": 0.26541755
+        },
+        {
+          "colName": "imdb_index",
+          "dataType": "character varying",
+          "avgWidth": 2,
+          "nullFrac": 0.7816333,
+          "nDistinct": 84.0,
+          "correlation": 0.15205002
+        },
+        {
+          "colName": "imdb_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 1.0,
+          "nDistinct": 0.0,
+          "correlation": null
+        },
+        {
+          "colName": "gender",
+          "dataType": "character varying",
+          "avgWidth": 2,
+          "nullFrac": 0.3529,
+          "nDistinct": 2.0,
+          "correlation": -0.37911656
+        },
+        {
+          "colName": "md5sum",
+          "dataType": "character varying",
+          "avgWidth": 33,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": -0.013149042
+        }
+      ]
+    },
+    "pg_foreign_table": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_authid": {
+      "tableSize": 15.0,
+      "columns": []
+    },
+    "role_type": {
+      "tableSize": 12.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 1.0
+        },
+        {
+          "colName": "role",
+          "dataType": "character varying",
+          "avgWidth": 11,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.4755245
+        }
+      ]
+    },
+    "title": {
+      "tableSize": 2528312.0,
+      "columns": [
+        {
+          "colName": "imdb_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 1.0,
+          "nDistinct": 0.0,
+          "correlation": null
+        },
+        {
+          "colName": "episode_of_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.39416668,
+          "nDistinct": 14336.0,
+          "correlation": 0.9937464
+        },
+        {
+          "colName": "season_nr",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.5668667,
+          "nDistinct": 65.0,
+          "correlation": 0.33757168
+        },
+        {
+          "colName": "episode_nr",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.56733334,
+          "nDistinct": 1119.0,
+          "correlation": 0.027935898
+        },
+        {
+          "colName": "series_years",
+          "dataType": "character varying",
+          "avgWidth": 10,
+          "nullFrac": 0.9647667,
+          "nDistinct": 231.0,
+          "correlation": -0.030283028
+        },
+        {
+          "colName": "md5sum",
+          "dataType": "character varying",
+          "avgWidth": 33,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.004901862
+        },
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.99810725
+        },
+        {
+          "colName": "title",
+          "dataType": "character varying",
+          "avgWidth": 17,
+          "nullFrac": 0.0,
+          "nDistinct": 145416.0,
+          "correlation": 0.41840723
+        },
+        {
+          "colName": "imdb_index",
+          "dataType": "character varying",
+          "avgWidth": 2,
+          "nullFrac": 0.98946667,
+          "nDistinct": 10.0,
+          "correlation": 0.32939193
+        },
+        {
+          "colName": "kind_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 6.0,
+          "correlation": -0.4039847
+        },
+        {
+          "colName": "production_year",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.026766667,
+          "nDistinct": 123.0,
+          "correlation": -0.15014552
+        },
+        {
+          "colName": "phonetic_code",
+          "dataType": "character varying",
+          "avgWidth": 5,
+          "nullFrac": 0.28063333,
+          "nDistinct": 11707.0,
+          "correlation": 0.22857694
+        }
+      ]
+    },
+    "movie_info": {
+      "tableSize": 14835720.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": -0.49960196
+        },
+        {
+          "colName": "movie_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 366823.0,
+          "correlation": 0.11135138
+        },
+        {
+          "colName": "info_type_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 70.0,
+          "correlation": -0.12825596
+        },
+        {
+          "colName": "info",
+          "dataType": "character varying",
+          "avgWidth": 41,
+          "nullFrac": 0.0,
+          "nDistinct": 20137.0,
+          "correlation": -0.083021246
+        },
+        {
+          "colName": "note",
+          "dataType": "character varying",
+          "avgWidth": 20,
+          "nullFrac": 0.9022,
+          "nDistinct": 2041.0,
+          "correlation": -0.06623539
+        }
+      ]
+    },
+    "person_info": {
+      "tableSize": 2963664.0,
+      "columns": [
+        {
+          "colName": "id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": -1.0,
+          "correlation": 0.9999994
+        },
+        {
+          "colName": "person_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 117680.0,
+          "correlation": 0.39514497
+        },
+        {
+          "colName": "info_type_id",
+          "dataType": "integer",
+          "avgWidth": 4,
+          "nullFrac": 0.0,
+          "nDistinct": 22.0,
+          "correlation": 0.09812061
+        },
+        {
+          "colName": "info",
+          "dataType": "character varying",
+          "avgWidth": 97,
+          "nullFrac": 0.0,
+          "nDistinct": 152964.0,
+          "correlation": 0.028124994
+        },
+        {
+          "colName": "note",
+          "dataType": "character varying",
+          "avgWidth": 15,
+          "nullFrac": 0.97183335,
+          "nDistinct": 2561.0,
+          "correlation": 0.03299369
+        }
+      ]
+    },
+    "pg_statistic_ext_data": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_user_mapping": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_subscription": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_attribute": {
+      "tableSize": 3495.0,
+      "columns": []
+    },
+    "pg_proc": {
+      "tableSize": 3297.0,
+      "columns": []
+    },
+    "pg_class": {
+      "tableSize": 580.0,
+      "columns": []
+    },
+    "pg_attrdef": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_constraint": {
+      "tableSize": 133.0,
+      "columns": []
+    },
+    "pg_inherits": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_index": {
+      "tableSize": 275.0,
+      "columns": []
+    },
+    "pg_operator": {
+      "tableSize": 799.0,
+      "columns": []
+    },
+    "pg_opfamily": {
+      "tableSize": 146.0,
+      "columns": []
+    },
+    "pg_opclass": {
+      "tableSize": 177.0,
+      "columns": []
+    },
+    "pg_am": {
+      "tableSize": 7.0,
+      "columns": []
+    },
+    "pg_amop": {
+      "tableSize": 945.0,
+      "columns": []
+    },
+    "pg_amproc": {
+      "tableSize": 696.0,
+      "columns": []
+    },
+    "pg_language": {
+      "tableSize": 4.0,
+      "columns": []
+    },
+    "pg_largeobject_metadata": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_aggregate": {
+      "tableSize": 157.0,
+      "columns": []
+    },
+    "pg_statistic_ext": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_rewrite": {
+      "tableSize": 143.0,
+      "columns": []
+    },
+    "pg_trigger": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_event_trigger": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_description": {
+      "tableSize": 5172.0,
+      "columns": []
+    },
+    "pg_cast": {
+      "tableSize": 229.0,
+      "columns": []
+    },
+    "pg_enum": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_namespace": {
+      "tableSize": 4.0,
+      "columns": []
+    },
+    "pg_conversion": {
+      "tableSize": 128.0,
+      "columns": []
+    },
+    "pg_depend": {
+      "tableSize": 1845.0,
+      "columns": []
+    },
+    "pg_database": {
+      "tableSize": 5.0,
+      "columns": []
+    },
+    "pg_db_role_setting": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_tablespace": {
+      "tableSize": 2.0,
+      "columns": []
+    },
+    "pg_auth_members": {
+      "tableSize": 3.0,
+      "columns": []
+    },
+    "pg_shdepend": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_shdescription": {
+      "tableSize": 3.0,
+      "columns": []
+    },
+    "pg_ts_config": {
+      "tableSize": 29.0,
+      "columns": []
+    },
+    "pg_ts_config_map": {
+      "tableSize": 551.0,
+      "columns": []
+    },
+    "pg_ts_dict": {
+      "tableSize": 29.0,
+      "columns": []
+    },
+    "pg_ts_parser": {
+      "tableSize": 1.0,
+      "columns": []
+    },
+    "pg_ts_template": {
+      "tableSize": 5.0,
+      "columns": []
+    },
+    "pg_extension": {
+      "tableSize": 1.0,
+      "columns": []
+    },
+    "pg_foreign_data_wrapper": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_foreign_server": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_policy": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_replication_origin": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_default_acl": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_init_privs": {
+      "tableSize": 220.0,
+      "columns": []
+    },
+    "pg_seclabel": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_shseclabel": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_collation": {
+      "tableSize": 795.0,
+      "columns": []
+    },
+    "pg_parameter_acl": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_partitioned_table": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_range": {
+      "tableSize": 6.0,
+      "columns": []
+    },
+    "pg_transform": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_sequence": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_publication": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_publication_namespace": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_publication_rel": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_subscription_rel": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "pg_largeobject": {
+      "tableSize": 0.0,
+      "columns": []
+    },
+    "sql_features": {
+      "tableSize": 755.0,
+      "columns": []
+    },
+    "sql_implementation_info": {
+      "tableSize": 12.0,
+      "columns": []
+    },
+    "sql_parts": {
+      "tableSize": 11.0,
+      "columns": []
+    },
+    "sql_sizing": {
+      "tableSize": 23.0,
+      "columns": []
+    }
+  },
+  "edge_to_id": {
+    "aka_name||cast_info": 0,
+    "aka_name||name": 1,
+    "aka_name||person_info": 2,
+    "aka_title||cast_info": 3,
+    "aka_title||complete_cast": 4,
+    "aka_title||movie_companies": 5,
+    "aka_title||movie_info": 6,
+    "aka_title||movie_info_idx": 7,
+    "aka_title||movie_keyword": 8,
+    "aka_title||movie_link": 9,
+    "aka_title||title": 10,
+    "cast_info||char_name": 11,
+    "cast_info||complete_cast": 12,
+    "cast_info||movie_companies": 13,
+    "cast_info||movie_info": 14,
+    "cast_info||movie_info_idx": 15,
+    "cast_info||movie_keyword": 16,
+    "cast_info||movie_link": 17,
+    "cast_info||role_type": 18,
+    "cast_info||title": 19,
+    "comp_cast_type||complete_cast": 20,
+    "company_name||movie_companies": 21,
+    "company_type||movie_companies": 22,
+    "complete_cast||movie_companies": 23,
+    "complete_cast||movie_info": 24,
+    "complete_cast||movie_info_idx": 25,
+    "complete_cast||movie_keyword": 26,
+    "complete_cast||movie_link": 27,
+    "complete_cast||title": 28,
+    "info_type||movie_info_idx": 29,
+    "keyword||movie_keyword": 30,
+    "kind_type||title": 31,
+    "link_type||movie_link": 32,
+    "movie_companies||movie_info": 33,
+    "movie_companies||movie_info_idx": 34,
+    "movie_companies||movie_keyword": 35,
+    "movie_companies||movie_link": 36,
+    "movie_companies||title": 37,
+    "movie_info||movie_info_idx": 38,
+    "movie_info||movie_keyword": 39,
+    "movie_info||movie_link": 40,
+    "movie_info||title": 41,
+    "movie_info_idx||movie_keyword": 42,
+    "movie_info_idx||movie_link": 43,
+    "movie_info_idx||title": 44,
+    "movie_keyword||movie_link": 45,
+    "movie_keyword||title": 46,
+    "movie_link||title": 47,
+    "name||person_info": 48,
+    "<UNK_EDGE>": 49
+  },
+  "algo_to_id": {
+    "Hash Join": 0,
+    "Index Nested Loop": 1,
+    "Merge Join": 2,
+    "Nested Loop": 3,
+    "<UNK_ALG>": 4
+  },
+  "op_to_id": {
+    "Hash": 0,
+    "Index Only Scan": 3,
+    "Index Scan": 4,
+    "Materialize": 5,
+    "Seq Scan": 8,
+    "Sort": 9,
+    "<UNK_OP>": 10
+  },
+  "norms": {
+    "est_card_out_log": {
+      "mean": 11.847440016061078,
+      "std": 3.6325214548531175,
+      "p1": 0.6931471805599453,
+      "p99": 17.405793927095694
+    },
+    "est_width_out": {
+      "mean": 9.614563716258631,
+      "std": 5.503050727066434,
+      "p1": 0.0,
+      "p99": 24.0
+    },
+    "est_loops_log": {
+      "mean": 0.6931471805599453,
+      "std": 1.0,
+      "p1": 0.6931471805599453,
+      "p99": 0.6931471805599453
+    },
+    "left_card_log": {
+      "mean": 11.570642872854396,
+      "std": 4.50474682220705,
+      "p1": 0.6931471805599453,
+      "p99": 17.405793927095694
+    },
+    "right_card_log": {
+      "mean": 12.389041777234004,
+      "std": 4.160295610551373,
+      "p1": 0.6931471805599453,
+      "p99": 18.59321005448046
+    },
+    "join_sel_log": {
+      "mean": 0.0245425532115023,
+      "std": 0.07216464697458358,
+      "p1": 4.4626760950668696e-11,
+      "p99": 0.22314377410204078
+    }
+  },
+  "md": 5,
+  "col_to_id": {
+    "aka_name.id": 0,
+    "aka_name.imdb_index": 1,
+    "aka_name.md5sum": 2,
+    "aka_name.name": 3,
+    "aka_name.name_pcode_cf": 4,
+    "aka_name.name_pcode_nf": 5,
+    "aka_name.person_id": 6,
+    "aka_name.surname_pcode": 7,
+    "aka_title.episode_nr": 8,
+    "aka_title.episode_of_id": 9,
+    "aka_title.id": 10,
+    "aka_title.imdb_index": 11,
+    "aka_title.kind_id": 12,
+    "aka_title.md5sum": 13,
+    "aka_title.movie_id": 14,
+    "aka_title.note": 15,
+    "aka_title.phonetic_code": 16,
+    "aka_title.production_year": 17,
+    "aka_title.season_nr": 18,
+    "aka_title.title": 19,
+    "cast_info.id": 20,
+    "cast_info.movie_id": 21,
+    "cast_info.note": 22,
+    "cast_info.nr_order": 23,
+    "cast_info.person_id": 24,
+    "cast_info.person_role_id": 25,
+    "cast_info.role_id": 26,
+    "char_name.id": 27,
+    "char_name.imdb_id": 28,
+    "char_name.imdb_index": 29,
+    "char_name.md5sum": 30,
+    "char_name.name": 31,
+    "char_name.name_pcode_nf": 32,
+    "char_name.surname_pcode": 33,
+    "comp_cast_type.id": 34,
+    "comp_cast_type.kind": 35,
+    "company_name.country_code": 36,
+    "company_name.id": 37,
+    "company_name.imdb_id": 38,
+    "company_name.md5sum": 39,
+    "company_name.name": 40,
+    "company_name.name_pcode_nf": 41,
+    "company_name.name_pcode_sf": 42,
+    "company_type.id": 43,
+    "company_type.kind": 44,
+    "complete_cast.id": 45,
+    "complete_cast.movie_id": 46,
+    "complete_cast.status_id": 47,
+    "complete_cast.subject_id": 48,
+    "info_type.id": 49,
+    "info_type.info": 50,
+    "keyword.id": 51,
+    "keyword.keyword": 52,
+    "keyword.phonetic_code": 53,
+    "kind_type.id": 54,
+    "kind_type.kind": 55,
+    "link_type.id": 56,
+    "link_type.link": 57,
+    "movie_companies.company_id": 58,
+    "movie_companies.company_type_id": 59,
+    "movie_companies.id": 60,
+    "movie_companies.movie_id": 61,
+    "movie_companies.note": 62,
+    "movie_info.id": 63,
+    "movie_info.info": 64,
+    "movie_info.info_type_id": 65,
+    "movie_info.movie_id": 66,
+    "movie_info.note": 67,
+    "movie_info_idx.id": 68,
+    "movie_info_idx.info": 69,
+    "movie_info_idx.info_type_id": 70,
+    "movie_info_idx.movie_id": 71,
+    "movie_info_idx.note": 72,
+    "movie_keyword.id": 73,
+    "movie_keyword.keyword_id": 74,
+    "movie_keyword.movie_id": 75,
+    "movie_link.id": 76,
+    "movie_link.link_type_id": 77,
+    "movie_link.linked_movie_id": 78,
+    "movie_link.movie_id": 79,
+    "name.gender": 80,
+    "name.id": 81,
+    "name.imdb_id": 82,
+    "name.imdb_index": 83,
+    "name.md5sum": 84,
+    "name.name": 85,
+    "name.name_pcode_cf": 86,
+    "name.name_pcode_nf": 87,
+    "name.surname_pcode": 88,
+    "person_info.id": 89,
+    "person_info.info": 90,
+    "person_info.info_type_id": 91,
+    "person_info.note": 92,
+    "person_info.person_id": 93,
+    "role_type.id": 94,
+    "role_type.role": 95,
+    "title.episode_nr": 96,
+    "title.episode_of_id": 97,
+    "title.id": 98,
+    "title.imdb_id": 99,
+    "title.imdb_index": 100,
+    "title.kind_id": 101,
+    "title.md5sum": 102,
+    "title.phonetic_code": 103,
+    "title.production_year": 104,
+    "title.season_nr": 105,
+    "title.series_years": 106,
+    "title.title": 107
+  },
+  "pred_norm_stats": {
+    "movie_keyword.keyword_id": {
+      "mean": 12735.988047808765,
+      "std": 23298.05920611965,
+      "p1": 36.0,
+      "p99": 123183.0
+    },
+    "title.id": {
+      "mean": 1173339.2985074627,
+      "std": 734313.6638697684,
+      "p1": 26024.0,
+      "p99": 2465571.0
+    },
+    "cast_info.id": {
+      "mean": 17648695.039325844,
+      "std": 11264915.831176538,
+      "p1": 27947.0,
+      "p99": 35892604.0
+    },
+    "movie_info_idx.movie_id": {
+      "mean": 1539983.6174496645,
+      "std": 695102.3717793601,
+      "p1": 49263.0,
+      "p99": 2500868.0
+    },
+    "movie_info_idx.id": {
+      "mean": 696632.6909090909,
+      "std": 394254.35685525276,
+      "p1": 11964.0,
+      "p99": 1369270.0
+    },
+    "title.kind_id": {
+      "mean": 5.228682170542636,
+      "std": 2.505641690249094,
+      "p1": 1.0,
+      "p99": 7.0
+    },
+    "company_name.id": {
+      "mean": 111403.67664670659,
+      "std": 64449.25930400265,
+      "p1": 5024.0,
+      "p99": 223170.0
+    },
+    "movie_companies.company_type_id": {
+      "mean": 1.490566037735849,
+      "std": 0.5008568986577949,
+      "p1": 1.0,
+      "p99": 2.0
+    },
+    "movie_companies.company_id": {
+      "mean": 35519.41176470588,
+      "std": 55730.50320142854,
+      "p1": 4.0,
+      "p99": 224013.0
+    },
+    "movie_companies.movie_id": {
+      "mean": 1659314.979757085,
+      "std": 660425.773295269,
+      "p1": 84281.0,
+      "p99": 2487105.0
+    },
+    "movie_companies.id": {
+      "mean": 1330829.5378151261,
+      "std": 761908.0567058907,
+      "p1": 42763.0,
+      "p99": 2565249.0
+    },
+    "title.episode_nr": {
+      "mean": 2166.3656387665196,
+      "std": 11307.810733992908,
+      "p1": 1.0,
+      "p99": 59856.0
+    },
+    "title.production_year": {
+      "mean": 1992.1618122977347,
+      "std": 25.062642905970353,
+      "p1": 1891.0,
+      "p99": 2014.0
+    },
+    "aka_name.id": {
+      "mean": 434648.23780487804,
+      "std": 246028.0275214273,
+      "p1": 4938.0,
+      "p99": 856889.0
+    },
+    "aka_name.person_id": {
+      "mean": 2159226.404255319,
+      "std": 1357984.8947427107,
+      "p1": 67401.0,
+      "p99": 4135548.0
+    },
+    "movie_link.movie_id": {
+      "mean": 95419.92222222222,
+      "std": 54166.600382674515,
+      "p1": 1447.0,
+      "p99": 183129.0
+    },
+    "movie_info.id": {
+      "mean": 7681400.21192053,
+      "std": 4424355.0283253165,
+      "p1": 77943.0,
+      "p99": 14523409.0
+    },
+    "title.season_nr": {
+      "mean": 36.75217391304348,
+      "std": 214.52179858813713,
+      "p1": 1.0,
+      "p99": 952.0
+    },
+    "person_info.info_type_id": {
+      "mean": 22.866197183098592,
+      "std": 6.334895895229556,
+      "p1": 15.0,
+      "p99": 38.0
+    },
+    "cast_info.role_id": {
+      "mean": 3.218543046357616,
+      "std": 3.02411207846777,
+      "p1": 1.0,
+      "p99": 10.0
+    },
+    "complete_cast.movie_id": {
+      "mean": 1465851.3046875,
+      "std": 734792.1153554657,
+      "p1": 60480.0,
+      "p99": 2497029.0
+    },
+    "complete_cast.status_id": {
+      "mean": 3.0710059171597632,
+      "std": 0.2575979817523306,
+      "p1": 3.0,
+      "p99": 4.0
+    },
+    "movie_info.info_type_id": {
+      "mean": 12.259541984732824,
+      "std": 16.843436423658893,
+      "p1": 1.0,
+      "p99": 92.0
+    },
+    "movie_info.movie_id": {
+      "mean": 1681827.8120300751,
+      "std": 677793.2779584896,
+      "p1": 147590.0,
+      "p99": 2494079.0
+    },
+    "movie_link.id": {
+      "mean": 15215.25,
+      "std": 9448.9926335813,
+      "p1": 142.0,
+      "p99": 29820.0
+    },
+    "cast_info.nr_order": {
+      "mean": 34333527.965,
+      "std": 158901400.28302002,
+      "p1": 0.0,
+      "p99": 931405066.0
+    },
+    "movie_info_idx.info_type_id": {
+      "mean": 100.14189189189189,
+      "std": 1.9966302739411135,
+      "p1": 99.0,
+      "p99": 111.0
+    },
+    "name.id": {
+      "mean": 2374031.965811966,
+      "std": 1151924.1405159063,
+      "p1": 197065.0,
+      "p99": 4121117.0
+    },
+    "info_type.id": {
+      "mean": 68.55555555555556,
+      "std": 35.40808995070975,
+      "p1": 1.0,
+      "p99": 111.0
+    },
+    "cast_info.person_role_id": {
+      "mean": 845662.1783783784,
+      "std": 993173.6702776004,
+      "p1": 10.0,
+      "p99": 3019567.0
+    },
+    "cast_info.person_id": {
+      "mean": 1776760.1011904762,
+      "std": 1143072.9811167289,
+      "p1": 39049.0,
+      "p99": 3944990.0
+    },
+    "aka_title.production_year": {
+      "mean": 1968.0,
+      "std": 37.60485341016502,
+      "p1": 1890.0,
+      "p99": 2010.0
+    },
+    "complete_cast.subject_id": {
+      "mean": 1.2275862068965517,
+      "std": 0.4207273395595698,
+      "p1": 1.0,
+      "p99": 2.0
+    },
+    "complete_cast.id": {
+      "mean": 67579.05882352941,
+      "std": 37485.71771892983,
+      "p1": 2550.0,
+      "p99": 133206.0
+    },
+    "role_type.id": {
+      "mean": 6.696078431372549,
+      "std": 3.2663578156604687,
+      "p1": 1.0,
+      "p99": 11.0
+    },
+    "title.episode_of_id": {
+      "mean": 833974.3181818182,
+      "std": 558816.5306359299,
+      "p1": 8664.0,
+      "p99": 2360578.0
+    },
+    "keyword.id": {
+      "mean": 63727.91803278688,
+      "std": 38918.785280759716,
+      "p1": 737.0,
+      "p99": 133214.0
+    },
+    "char_name.id": {
+      "mean": 1460069.0,
+      "std": 863117.5674854376,
+      "p1": 19574.0,
+      "p99": 3058207.0
+    },
+    "movie_keyword.id": {
+      "mean": 2320036.254716981,
+      "std": 1279046.082771493,
+      "p1": 74594.0,
+      "p99": 4431022.0
+    },
+    "movie_link.link_type_id": {
+      "mean": 7.0,
+      "std": 3.4721858772760337,
+      "p1": 1.0,
+      "p99": 15.0
+    },
+    "person_info.id": {
+      "mean": 1536951.3513513512,
+      "std": 807900.7784535815,
+      "p1": 37229.0,
+      "p99": 2875305.0
+    },
+    "person_info.person_id": {
+      "mean": 1679139.2419354839,
+      "std": 1041990.3246159446,
+      "p1": 25999.0,
+      "p99": 4068577.0
+    },
+    "kind_type.id": {
+      "mean": 3.511904761904762,
+      "std": 1.7611512811756886,
+      "p1": 1.0,
+      "p99": 7.0
+    },
+    "movie_link.linked_movie_id": {
+      "mean": 1504831.1505376345,
+      "std": 812970.6451107988,
+      "p1": 6202.0,
+      "p99": 2520770.0
+    },
+    "comp_cast_type.id": {
+      "mean": 1.9166666666666667,
+      "std": 0.7874366623260193,
+      "p1": 1.0,
+      "p99": 3.0
+    },
+    "movie_keyword.movie_id": {
+      "mean": 1934364.281512605,
+      "std": 536312.8324927742,
+      "p1": 197927.0,
+      "p99": 2514403.0
+    },
+    "aka_title.movie_id": {
+      "mean": 2000288.7307692308,
+      "std": 499389.98026052205,
+      "p1": 551327.0,
+      "p99": 2497798.0
+    },
+    "aka_title.kind_id": {
+      "mean": 1.6666666666666667,
+      "std": 1.3217891045025332,
+      "p1": 1.0,
+      "p99": 4.0
+    },
+    "cast_info.movie_id": {
+      "mean": 1347630.34,
+      "std": 725838.0707494896,
+      "p1": 22536.0,
+      "p99": 2488908.0
+    },
+    "link_type.id": {
+      "mean": 8.982456140350877,
+      "std": 4.474096988180869,
+      "p1": 1.0,
+      "p99": 17.0
+    },
+    "company_type.id": {
+      "mean": 1.9403973509933774,
+      "std": 0.8019292410969121,
+      "p1": 1.0,
+      "p99": 3.0
+    },
+    "aka_title.episode_nr": {
+      "mean": 147.96666666666667,
+      "std": 584.6251662881707,
+      "p1": 1.0,
+      "p99": 904.0
+    },
+    "aka_title.id": {
+      "mean": 176361.2,
+      "std": 112215.37320176663,
+      "p1": 6107.0,
+      "p99": 359069.0
+    },
+    "aka_title.season_nr": {
+      "mean": 5.59375,
+      "std": 12.966108116062404,
+      "p1": 1.0,
+      "p99": 46.0
+    },
+    "aka_title.episode_of_id": {
+      "mean": 13368.863636363636,
+      "std": 7185.527453850781,
+      "p1": 1617.0,
+      "p99": 24479.0
+    }
+  },
+  "preop_to_id": {
+    "!=": 0,
+    "<=": 1,
+    "=": 2,
+    ">=": 3,
+    "AND": 4,
+    "<UNK_OP>": 5
+  }
+}

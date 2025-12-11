@@ -1,4 +1,5 @@
 **.json
+!stats.json
 _archiv/
 venv/
 __pycache__
