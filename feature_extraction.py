@@ -3,6 +3,7 @@ import math
 import os
 import re
 import argparse
+import time
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Set, Optional
@@ -375,7 +376,6 @@ def extract_features(file_path:str, build_stats: bool = False):
         }, "stats.json")
     else:
         full_path = Path(__file__).resolve().parent / "stats.json"
-        print(full_path)
         stats = load_stats(full_path)
         table_column_map = stats["table_column_map"]
         edge_to_id = stats["edge_to_id"]
@@ -387,6 +387,9 @@ def extract_features(file_path:str, build_stats: bool = False):
         pred_norm_stats = stats["pred_norm_stats"]
         preop_to_id = stats["preop_to_id"]
     feature_vectors = []
+    total_tables_time = 0.0
+    total_joins_time = 0.0
+    total_preds_time = 0.0
     for plan in plans:
         # extract label
         label = plan.get("plan_runtime_ms")
@@ -398,13 +401,30 @@ def extract_features(file_path:str, build_stats: bool = False):
         # extract query identifier (to map this plan to the corresponding query)
         sql = plan.pop("sql")
         # extract feature information
-        features = extract_feature(plan, table_column_map, edge_to_id, algo_to_id,
-                                   op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats)
+        feature_extractor = FeatureExtractor(plan, table_column_map)
+        t0 = time.perf_counter()
+        table_features, table_feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
+        t1 = time.perf_counter()
+        total_tables_time += (t1 - t0)
+        t0 = time.perf_counter()
+        join_features = feature_extractor.extract_features_for_joins(edge_to_id, algo_to_id, op_to_id, norms, md)
+        t1 = time.perf_counter()
+        total_joins_time += (t1 - t0)
+        t0 = time.perf_counter()
+        pred_features = feature_extractor.extract_feature_for_predicates(col_to_id, preop_to_id, pred_norm_stats)
+        t1 = time.perf_counter()
+        total_preds_time += (t1 - t0)
+        # features = extract_feature(plan, table_column_map, edge_to_id, algo_to_id,
+        #                            op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats)
         feature_vectors.append({
             'sql': sql,
-            'features': features,
+            'features': [table_feature_vectors, join_features, pred_features],
             'label': math.log1p(label)
         })
+    print(f"[TIMING] tables total: {total_tables_time:.2f}s")
+    print(f"[TIMING] joins  total: {total_joins_time:.2f}s")
+    print(f"[TIMING] preds  total: {total_preds_time:.2f}s")
+    print(f"[TIMING] ALL 3 total: {(total_tables_time + total_joins_time + total_preds_time):.2f}s")
 
     return feature_vectors
 
@@ -433,10 +453,13 @@ def main():
     parser.add_argument("--output_path", type=str, help="Path to the output features JSON file", required=True)
     parser.add_argument("--build_stats", action="store_true", help="Build statistics for the feature extractor.")
     args = parser.parse_args()
-    print(args.build_stats)
+    t1 = time.perf_counter()
     feature_vectors = extract_features(args.file_path, args.build_stats)
-
+    t2 = time.perf_counter()
     save_data(args.output_path, feature_vectors)
+    t3 = time.perf_counter()
+    print(f"[TIMING] Total time: {(t2 - t1):.2f}s")
+    print(f"[TIMING] Saving time: {(t3 - t2):.2f}s")
     print("Feature vectors saved successfully!")
 
 if __name__ == "__main__":
