@@ -54,6 +54,5 @@ def make_dataloaders(train_path: str = "datasets/train_features.json",
         num_workers=num_workers,
         collate_fn=build_mscn_collate_fn(feature_dims[0], feature_dims[1], feature_dims[2]),
     )
-    print(f"Loaded {len(train_ds)} training examples and {len(test_ds)} test examples.")
 
     return train_loader, test_loader

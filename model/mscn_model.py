@@ -19,7 +19,6 @@ class MSCNModel(nn.Module):
         self.join_mlp = SetEncoder(in_dim=join_dim)
         self.pred_mlp = SetEncoder(in_dim=pred_dim)
 
-        # Input to final MLP = sum of set embeddings
         final_in = 3 * hidden_set
 
         self.final_mlp = nn.Sequential(
