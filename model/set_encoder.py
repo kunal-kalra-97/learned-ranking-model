@@ -12,7 +12,7 @@ def masked_mean(x, mask, dim=1):
     return num / den
 
 class SetEncoder(nn.Module):
-    def __init__(self, in_dim, hidden=64, out_dim=64, dropout=0.0):
+    def __init__(self, in_dim, hidden=128, out_dim=128, dropout=0.1):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(in_dim, hidden),
