@@ -14,8 +14,6 @@ class RankingModelWrapper:
         device = torch.device("cpu")
         if torch.cuda.is_available():
             device = torch.device("cuda")
-        elif torch.mps.is_available():
-            device = torch.device("mps")
 
         Ft, Fj, Fp = feature_dims
         self.feature_dims = feature_dims
@@ -35,8 +33,7 @@ class RankingModelWrapper:
         device = torch.device("cpu")
         if torch.cuda.is_available():
             device = torch.device("cuda")
-        elif torch.mps.is_available():
-            device = torch.device("mps")
+
         # since the demo uses a cost-model approach, we predict the runtime for each plan candidate
         # data = np.array(plan_candidates_features)
         predictions = predict(self.model, plan_candidates_features, self.feature_dims, device=device)
@@ -132,8 +129,6 @@ def train_model(model, batch_size=64, epochs=20, lr=1e-3, feature_dims: Tuple[in
     device = torch.device("cpu")
     if torch.cuda.is_available():
         device = torch.device("cuda")
-    elif torch.mps.is_available():
-        device = torch.device("mps")
 
     train_loader, test_loader = make_dataloaders(
         batch_size = batch_size,
