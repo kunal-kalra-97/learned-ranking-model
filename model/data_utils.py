@@ -140,55 +140,6 @@ def make_mscn_batch(
     return tables_X, tables_m, joins_X, joins_m, preds_X, preds_m, y
 
 
-def _tuple_key_dict_to_str(d: dict, sep: str = "||") -> dict:
-    """
-    Convert dict with tuple keys to dict with string keys,
-    e.g. ('movie', 'cast') -> 'movie||cast'.
-    Leaves non-tuple keys intact.
-    """
-    out = {}
-    for k, v in d.items():
-        if isinstance(k, tuple):
-            k_str = sep.join(str(part) for part in k)
-        else:
-            k_str = k
-        out[k_str] = v
-    return out
-
-
-def save_stats(stats, file_path):
-    stats_json = dict(stats)
-    if "edge_to_id" in stats_json:
-        stats_json["edge_to_id"] = _tuple_key_dict_to_str(stats_json["edge_to_id"])
-
-    with open(file_path, "w") as f:
-        json.dump(stats_json, f, indent=2)
-
-def _str_key_dict_to_tuple(d: dict, sep: str = "||") -> dict:
-    """
-    Inverse of _tuple_key_dict_to_str:
-    'movie||cast' -> ('movie', 'cast') if sep is found.
-    Leaves non-string keys as-is.
-    """
-    out = {}
-    for k, v in d.items():
-        if isinstance(k, str) and sep in k:
-            parts = tuple(k.split(sep))
-            out[parts] = v
-        else:
-            out[k] = v
-    return out
-
-
-def load_stats(file_path):
-    with open(file_path) as f:
-        stats_json = json.load(f)
-
-    if "edge_to_id" in stats_json:
-        stats_json["edge_to_id"] = _str_key_dict_to_tuple(stats_json["edge_to_id"])
-
-    return stats_json
-
 
 
 

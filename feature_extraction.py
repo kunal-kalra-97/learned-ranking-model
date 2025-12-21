@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Tuple, Set, Optional
 import orjson
 
 from feature_extractor import FeatureExtractor
-from model.data_utils import save_stats, load_stats
 
 
 def extract_feature(plan:Dict, table_stats: Dict[str, Dict[str, Any]], edge_to_id, algo_to_id, op_to_id, norms, md, col_to_id, pred_op_to_id, col_norms)->Any:
@@ -418,6 +417,55 @@ def save_data(file_path, data):
         os.makedirs(dir_name, exist_ok=True)
     with open(file_path, 'wb') as file:
         file.write(orjson.dumps(data))
+
+def _tuple_key_dict_to_str(d: dict, sep: str = "||") -> dict:
+    """
+    Convert dict with tuple keys to dict with string keys,
+    e.g. ('movie', 'cast') -> 'movie||cast'.
+    Leaves non-tuple keys intact.
+    """
+    out = {}
+    for k, v in d.items():
+        if isinstance(k, tuple):
+            k_str = sep.join(str(part) for part in k)
+        else:
+            k_str = k
+        out[k_str] = v
+    return out
+
+
+def save_stats(stats, file_path):
+    stats_json = dict(stats)
+    if "edge_to_id" in stats_json:
+        stats_json["edge_to_id"] = _tuple_key_dict_to_str(stats_json["edge_to_id"])
+
+    with open(file_path, "w") as f:
+        json.dump(stats_json, f, indent=2)
+
+def _str_key_dict_to_tuple(d: dict, sep: str = "||") -> dict:
+    """
+    Inverse of _tuple_key_dict_to_str:
+    'movie||cast' -> ('movie', 'cast') if sep is found.
+    Leaves non-string keys as-is.
+    """
+    out = {}
+    for k, v in d.items():
+        if isinstance(k, str) and sep in k:
+            parts = tuple(k.split(sep))
+            out[parts] = v
+        else:
+            out[k] = v
+    return out
+
+
+def load_stats(file_path):
+    with open(file_path) as f:
+        stats_json = json.load(f)
+
+    if "edge_to_id" in stats_json:
+        stats_json["edge_to_id"] = _str_key_dict_to_tuple(stats_json["edge_to_id"])
+
+    return stats_json
 
 def main():
     parser = argparse.ArgumentParser(description="Extract features from the provided JSON file.")
