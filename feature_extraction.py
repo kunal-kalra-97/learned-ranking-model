@@ -395,7 +395,7 @@ def extract_features(file_path:str, build_stats: bool = False):
         feature_vectors.append({
             'sql': sql,
             'features': features,
-            'label': math.log1p(label)
+            'label': label
         })
     return feature_vectors
 

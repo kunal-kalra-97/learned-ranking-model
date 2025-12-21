@@ -1,5 +1,6 @@
 # datasets.py
 import json
+import math
 from typing import List, Dict, Any, Tuple
 from torch.utils.data import Dataset, DataLoader
 
@@ -25,7 +26,7 @@ def build_mscn_collate_fn(ft=None, fj=None, fp=None):
     """
     def _collate(batch: List[Dict[str, Any]]):
         batch_samples = [ex["features"] for ex in batch]
-        batch_labels  = [ex["label"]   for ex in batch]
+        batch_labels  = [math.log1p(ex["label"])   for ex in batch]
         return make_mscn_batch(batch_samples, batch_labels, ft=ft, fj=fj, fp=fp)
     return _collate
 
