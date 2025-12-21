@@ -5,9 +5,7 @@ import joblib
 import argparse
 from evaluate_model import evaluate_model
 from model.data_utils import make_mscn_batch, infer_feature_dims_from_dataset
-from model.mscn_dataset import make_dataloaders
 from model.ranking_model_wrapper import RankingModelWrapper
-import numpy as np
 
 
 def load_features_from_file(file_path):

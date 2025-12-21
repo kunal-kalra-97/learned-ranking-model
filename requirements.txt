@@ -1,7 +1,8 @@
 scikit-learn
 joblib
 requests
-pandas
+pandas<2.3
+numpy<2
 tqdm
 torch
 orjson
