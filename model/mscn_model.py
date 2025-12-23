@@ -12,24 +12,30 @@ class MSCNModel(nn.Module):
         pred_dim: int,
         hidden_set: int = 128,
         hidden_out: int = 256,
-        dropout: float = 0.1
+        dropout: float = 0.1,
+        num_set_layers: int = 3,
     ):
         super().__init__()
-
         self.table_mlp = SetEncoder(
             in_dim=table_dim,
             hidden=hidden_set,
             out_dim=hidden_set,
+            num_layers=num_set_layers,
+            dropout=dropout,
         )
         self.join_mlp = SetEncoder(
             in_dim=join_dim,
             hidden=hidden_set,
             out_dim=hidden_set,
+            num_layers=num_set_layers,
+            dropout=dropout,
         )
         self.pred_mlp = SetEncoder(
             in_dim=pred_dim,
             hidden=hidden_set,
             out_dim=hidden_set,
+            num_layers=num_set_layers,
+            dropout=dropout,
         )
 
         final_in = 3 * hidden_set
@@ -41,7 +47,9 @@ class MSCNModel(nn.Module):
             nn.Linear(hidden_out, hidden_out),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_out, 1)
+            nn.Linear(hidden_out, hidden_out),
+            nn.ReLU(),
+            nn.Linear(hidden_out, 1),
         )
 
     def forward(self,
