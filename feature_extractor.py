@@ -49,17 +49,48 @@ class FeatureExtractor:
             return max(-nd * rows, 0.0)
 
         def compute_table_scalars(table_rec: Dict[str, Any], total_rows_in_schema: float) -> Dict[str, float]:
-            cols = table_rec.get("columns")
-            rows = table_rec.get("tableSize")
-            rows_total = max(total_rows_in_schema, 1.0)
+            # Be robust to missing keys / different stat formats
+            cols = table_rec.get("columns") or []
+            rows = table_rec.get("tableSize", None)
+            if rows is None:
+                rows = table_rec.get("reltuples", None)
+
+            try:
+                rows = float(rows) if rows is not None else 0.0
+            except Exception:
+                rows = 0.0
+
+            rows_total = max(float(total_rows_in_schema or 0.0), 1.0)
+
+            def _get_col_val(c: Dict[str, Any], *keys, default=None):
+                for k in keys:
+                    if k in c and c.get(k) is not None:
+                        return c.get(k)
+                return default
 
             # widths
-            widths = [(c.get("avgWidth")) for c in cols if c.get("avgWidth") is not None]
+            widths = []
+            for c in cols:
+                w = _get_col_val(c, "avgWidth", "avg_width")
+                if w is None:
+                    continue
+                try:
+                    widths.append(float(w))
+                except Exception:
+                    pass
             avg_col_width = sum(widths) / len(widths) if widths else 0.0
             max_col_width = max(widths) if widths else 0.0
 
             # null fractions
-            nulls = [(c.get("nullFrac")) for c in cols if c.get("nullFrac") is not None]
+            nulls = []
+            for c in cols:
+                nf = _get_col_val(c, "nullFrac", "null_frac")
+                if nf is None:
+                    continue
+                try:
+                    nulls.append(float(nf))
+                except Exception:
+                    pass
             mean_null_frac = sum(nulls) / len(nulls) if nulls else 0.0
             max_null_frac = max(nulls) if nulls else 0.0
 
@@ -67,7 +98,8 @@ class FeatureExtractor:
             ndv_ratios = []
             high_ndv_cnt = 0
             for c in cols:
-                ndv = _estimate_ndv(c.get("nDistinct"), rows)
+                nd = _get_col_val(c, "nDistinct", "n_distinct")
+                ndv = _estimate_ndv(nd, rows)
                 denom = max(rows, 1.0)
                 r = min(max(ndv / denom, 0.0), 1.0)  # clamp to [0,1]
                 ndv_ratios.append(r)
@@ -78,20 +110,31 @@ class FeatureExtractor:
             frac_high_ndv = (high_ndv_cnt / len(ndv_ratios)) if ndv_ratios else 0.0
 
             # correlations (abs)
-            corrs = [abs((c.get("correlation"))) for c in cols if c.get("correlation") is not None]
+            corrs = []
+            for c in cols:
+                corr = _get_col_val(c, "correlation")
+                if corr is None:
+                    continue
+                try:
+                    corrs.append(abs(float(corr)))
+                except Exception:
+                    pass
             mean_abs_corr = sum(corrs) / len(corrs) if corrs else 0.0
 
-            # type mix
+            numeric_prefixes = ("int", "integer", "smallint", "bigint", "serial", "float", "double", "real", "decimal",
+                                "numeric", "bool")
+            text_prefixes = ("varchar", "char", "text")
+
             numeric_cnt = 0
             text_cnt = 0
             for c in cols:
-                dt = c.get("data_type")
-                if (dt.startswith(p) for p in ["int", "float", "double", "decimal", "numeric"]):
+                dt = _get_col_val(c, "data_type", "dataType")
+                dt = (str(dt).lower().strip() if dt is not None else "")
+                if dt.startswith(numeric_prefixes):
                     numeric_cnt += 1
-                    break
-                if (dt.startswith(p) for p in ["varchar", "char", "text"]):
+                if dt.startswith(text_prefixes):
                     text_cnt += 1
-                    break
+
             ncols = len(cols) if cols else 0
             frac_numeric = (numeric_cnt / ncols) if ncols else 0.0
             frac_text = (text_cnt / ncols) if ncols else 0.0
@@ -272,13 +315,14 @@ class FeatureExtractor:
                     est_loops_log = math.log1p((plan_parameters.get("est_loops", 0.0)))
 
                     lpp = children[0].get("plan_parameters", {}) if len(children) > 0 else {}
-                    rpp = children[0].get("plan_parameters", {}) if len(children) > 1 else {}
+                    rpp = children[1].get("plan_parameters", {}) if len(children) > 1 else {}
                     left_raw = float(lpp.get("est_card") or 0.0)
                     right_raw = float(rpp.get("est_card") or 0.0)
                     left_card_log = math.log1p(left_raw)
                     right_card_log = math.log1p(right_raw)
 
-                    raw_depth_norm = float(depth) / float(md)
+                    md_safe = max(float(md), 1.0)
+                    raw_depth_norm = float(depth) / md_safe
                     is_root_join = 1.0 if depth == 0 else 0.0
                     right_is_join = _is_join(children[1]) if len(children) > 1 else False
                     left_deep_hint = 1.0 if (len(children) > 1 and not right_is_join) else 0.0
@@ -346,11 +390,25 @@ class FeatureExtractor:
             spec = col_norms.get(col_key)
             return _clip_z(float(v), spec) if spec else 0.0
 
-        def _to_float(x: Any):
-            try:
-                return float(x)
-            except Exception:
+        def _to_float(x: Any) -> Optional[float]:
+            if x is None:
                 return None
+            if isinstance(x, (int, float)):
+                return float(x)
+            if isinstance(x, bool):
+                return float(int(x))
+            if isinstance(x, str):
+                s = x.strip()
+                if len(s) >= 2 and ((s[0] == s[-1] == "'") or (s[0] == s[-1] == '"')):
+                    s = s[1:-1].strip()
+                s = s.replace(",", "")
+                if s == "":
+                    return None
+                try:
+                    return float(s)
+                except Exception:
+                    return None
+            return None
 
         def _one_hot(idx: int, size: int) -> List[float]:
             row = [0.0] * size
@@ -471,13 +529,17 @@ class FeatureExtractor:
         def dfs(node: Dict[str, Any]):
             pp = node.get("plan_parameters", {})
 
-            # 1) Filters — handle both shapes
             filt = pp.get("filter")
+            atoms: List[Dict[str, Any]] = []
+
             if isinstance(filt, dict):
-                atoms: List[Dict[str, Any]] = []
                 _gather_atomic_filters(filt, atoms)
-                for af in atoms:
-                    encode_atomic_filter(af)
+            elif isinstance(filt, list):
+                for item in filt:
+                    _gather_atomic_filters(item, atoms)
+
+            for af in atoms:
+                encode_atomic_filter(af)
 
             encode_join(pp)
 
