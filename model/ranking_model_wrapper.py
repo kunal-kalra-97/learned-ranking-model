@@ -124,7 +124,7 @@ def predict(model, plan_candidates_features: List[Any], feature_dims, device):
     return y_pred.cpu().numpy()
 
 
-def train_model(model, batch_size=64, epochs=10, lr=1e-3, feature_dims: Tuple[int, int, int] = None):
+def train_model(model, batch_size=64, epochs=15, lr=1e-3, feature_dims: Tuple[int, int, int] = None):
     device = torch.device("cpu")
     if torch.cuda.is_available():
         device = torch.device("cuda")
