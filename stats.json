@@ -2,6 +2,7 @@
   "table_column_map": {
     "aka_name": {
       "tableSize": 901343.0,
+      "tablePages": 11396,
       "columns": [
         {
           "colName": "id",
@@ -71,6 +72,7 @@
     },
     "aka_title": {
       "tableSize": 361472.0,
+      "tablePages": 6192,
       "columns": [
         {
           "colName": "title",
@@ -172,6 +174,7 @@
     },
     "cast_info": {
       "tableSize": 36244344.0,
+      "tablePages": 252686,
       "columns": [
         {
           "colName": "person_role_id",
@@ -233,6 +236,7 @@
     },
     "char_name": {
       "tableSize": 3140339.0,
+      "tablePages": 36447,
       "columns": [
         {
           "colName": "name",
@@ -294,6 +298,7 @@
     },
     "comp_cast_type": {
       "tableSize": 4.0,
+      "tablePages": 1,
       "columns": [
         {
           "colName": "id",
@@ -315,6 +320,7 @@
     },
     "company_name": {
       "tableSize": 234997.0,
+      "tablePages": 2995,
       "columns": [
         {
           "colName": "id",
@@ -376,6 +382,7 @@
     },
     "company_type": {
       "tableSize": 4.0,
+      "tablePages": 1,
       "columns": [
         {
           "colName": "id",
@@ -397,6 +404,7 @@
     },
     "complete_cast": {
       "tableSize": 135086.0,
+      "tablePages": 731,
       "columns": [
         {
           "colName": "id",
@@ -434,6 +442,7 @@
     },
     "info_type": {
       "tableSize": 113.0,
+      "tablePages": 1,
       "columns": [
         {
           "colName": "id",
@@ -455,6 +464,7 @@
     },
     "keyword": {
       "tableSize": 134170.0,
+      "tablePages": 949,
       "columns": [
         {
           "colName": "id",
@@ -484,6 +494,7 @@
     },
     "kind_type": {
       "tableSize": 7.0,
+      "tablePages": 1,
       "columns": [
         {
           "colName": "id",
@@ -505,6 +516,7 @@
     },
     "link_type": {
       "tableSize": 18.0,
+      "tablePages": 1,
       "columns": [
         {
           "colName": "id",
@@ -526,14 +538,17 @@
     },
     "pg_statistic": {
       "tableSize": 517.0,
+      "tablePages": 45,
       "columns": []
     },
     "pg_type": {
       "tableSize": 655.0,
+      "tablePages": 16,
       "columns": []
     },
     "movie_companies": {
       "tableSize": 2609129.0,
+      "tablePages": 18790,
       "columns": [
         {
           "colName": "company_id",
@@ -579,6 +594,7 @@
     },
     "movie_info_idx": {
       "tableSize": 1380035.0,
+      "tablePages": 7935,
       "columns": [
         {
           "colName": "id",
@@ -624,6 +640,7 @@
     },
     "movie_keyword": {
       "tableSize": 4523930.0,
+      "tablePages": 24454,
       "columns": [
         {
           "colName": "id",
@@ -653,6 +670,7 @@
     },
     "movie_link": {
       "tableSize": 29997.0,
+      "tablePages": 163,
       "columns": [
         {
           "colName": "id",
@@ -690,6 +708,7 @@
     },
     "name": {
       "tableSize": 4167491.0,
+      "tablePages": 55614,
       "columns": [
         {
           "colName": "name_pcode_cf",
@@ -767,14 +786,17 @@
     },
     "pg_foreign_table": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_authid": {
       "tableSize": 15.0,
+      "tablePages": 1,
       "columns": []
     },
     "role_type": {
       "tableSize": 12.0,
+      "tablePages": 1,
       "columns": [
         {
           "colName": "id",
@@ -796,6 +818,7 @@
     },
     "title": {
       "tableSize": 2528312.0,
+      "tablePages": 35998,
       "columns": [
         {
           "colName": "imdb_id",
@@ -897,6 +920,7 @@
     },
     "movie_info": {
       "tableSize": 14835720.0,
+      "tablePages": 161648,
       "columns": [
         {
           "colName": "id",
@@ -942,6 +966,7 @@
     },
     "person_info": {
       "tableSize": 2963664.0,
+      "tablePages": 51072,
       "columns": [
         {
           "colName": "id",
@@ -987,258 +1012,322 @@
     },
     "pg_statistic_ext_data": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_user_mapping": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_subscription": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_attribute": {
       "tableSize": 3495.0,
+      "tablePages": 64,
       "columns": []
     },
     "pg_proc": {
       "tableSize": 3297.0,
+      "tablePages": 98,
       "columns": []
     },
     "pg_class": {
       "tableSize": 580.0,
+      "tablePages": 15,
       "columns": []
     },
     "pg_attrdef": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_constraint": {
       "tableSize": 133.0,
+      "tablePages": 3,
       "columns": []
     },
     "pg_inherits": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_index": {
       "tableSize": 275.0,
+      "tablePages": 7,
       "columns": []
     },
     "pg_operator": {
       "tableSize": 799.0,
+      "tablePages": 14,
       "columns": []
     },
     "pg_opfamily": {
       "tableSize": 146.0,
+      "tablePages": 2,
       "columns": []
     },
     "pg_opclass": {
       "tableSize": 177.0,
+      "tablePages": 3,
       "columns": []
     },
     "pg_am": {
       "tableSize": 7.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_amop": {
       "tableSize": 945.0,
+      "tablePages": 7,
       "columns": []
     },
     "pg_amproc": {
       "tableSize": 696.0,
+      "tablePages": 5,
       "columns": []
     },
     "pg_language": {
       "tableSize": 4.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_largeobject_metadata": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_aggregate": {
       "tableSize": 157.0,
+      "tablePages": 2,
       "columns": []
     },
     "pg_statistic_ext": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_rewrite": {
       "tableSize": 143.0,
+      "tablePages": 13,
       "columns": []
     },
     "pg_trigger": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_event_trigger": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_description": {
       "tableSize": 5172.0,
+      "tablePages": 45,
       "columns": []
     },
     "pg_cast": {
       "tableSize": 229.0,
+      "tablePages": 2,
       "columns": []
     },
     "pg_enum": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_namespace": {
       "tableSize": 4.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_conversion": {
       "tableSize": 128.0,
+      "tablePages": 2,
       "columns": []
     },
     "pg_depend": {
       "tableSize": 1845.0,
+      "tablePages": 14,
       "columns": []
     },
     "pg_database": {
       "tableSize": 5.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_db_role_setting": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_tablespace": {
       "tableSize": 2.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_auth_members": {
       "tableSize": 3.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_shdepend": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_shdescription": {
       "tableSize": 3.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_ts_config": {
       "tableSize": 29.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_ts_config_map": {
       "tableSize": 551.0,
+      "tablePages": 3,
       "columns": []
     },
     "pg_ts_dict": {
       "tableSize": 29.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_ts_parser": {
       "tableSize": 1.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_ts_template": {
       "tableSize": 5.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_extension": {
       "tableSize": 1.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_foreign_data_wrapper": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_foreign_server": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_policy": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_replication_origin": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_default_acl": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_init_privs": {
       "tableSize": 220.0,
+      "tablePages": 3,
       "columns": []
     },
     "pg_seclabel": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_shseclabel": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_collation": {
       "tableSize": 795.0,
+      "tablePages": 14,
       "columns": []
     },
     "pg_parameter_acl": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_partitioned_table": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_range": {
       "tableSize": 6.0,
+      "tablePages": 1,
       "columns": []
     },
     "pg_transform": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_sequence": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_publication": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_publication_namespace": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_publication_rel": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_subscription_rel": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "pg_largeobject": {
       "tableSize": 0.0,
+      "tablePages": 0.0,
       "columns": []
     },
     "sql_features": {
       "tableSize": 755.0,
+      "tablePages": 8,
       "columns": []
     },
     "sql_implementation_info": {
       "tableSize": 12.0,
+      "tablePages": 1,
       "columns": []
     },
     "sql_parts": {
       "tableSize": 11.0,
+      "tablePages": 1,
       "columns": []
     },
     "sql_sizing": {
       "tableSize": 23.0,
+      "tablePages": 1,
       "columns": []
     }
   },
@@ -1349,6 +1438,32 @@
     }
   },
   "md": 5,
+  "join_key_norms": {
+    "key_null_frac": {
+      "mean": 0.009040934295877798,
+      "std": 0.06769578452476112,
+      "p1": 0.0,
+      "p99": 0.5159
+    },
+    "key_ndv_ratio": {
+      "mean": 0.5333538415708311,
+      "std": 0.44649794239732427,
+      "p1": 3.034956295525724e-07,
+      "p99": 1.0
+    },
+    "key_abs_corr": {
+      "mean": 0.7485655380539078,
+      "std": 0.3479541708163819,
+      "p1": 0.0018360945,
+      "p99": 1.0
+    },
+    "key_avg_width_log": {
+      "mean": 1.6094379124341003,
+      "std": 1.0,
+      "p1": 1.6094379124341003,
+      "p99": 1.6094379124341003
+    }
+  },
   "col_to_id": {
     "aka_name.id": 0,
     "aka_name.imdb_index": 1,
