@@ -461,6 +461,7 @@ def extract_features(file_path:str, build_stats: bool = False):
     Returns:
         tuple: A tuple containing a list of feature vectors and corresponding labels.
     """
+    print("Extracting features")
     with open(file_path, 'r') as file: 
         json_data = json.load(file)
     
