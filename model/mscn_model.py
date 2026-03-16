@@ -12,8 +12,9 @@ class MSCNModel(nn.Module):
         pred_dim: int,
         hidden_set: int = 128,
         hidden_out: int = 256,
-        dropout: float = 0.1,
-        num_set_layers: int = 3,
+        dropout: float = 0.15,
+        num_set_layers: int = 5,
+        num_final_layers: int = 4,
     ):
         super().__init__()
         self.table_mlp = SetEncoder(
@@ -40,17 +41,17 @@ class MSCNModel(nn.Module):
 
         final_in = 3 * hidden_set
 
-        self.final_mlp = nn.Sequential(
-            nn.Linear(final_in, hidden_out),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_out, hidden_out),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_out, hidden_out),
-            nn.ReLU(),
-            nn.Linear(hidden_out, 1),
-        )
+        # Build final MLP
+        layers = []
+        in_d = final_in
+        for i in range(num_final_layers):
+            layers.append(nn.Linear(in_d, hidden_out))
+            layers.append(nn.ReLU())
+            if i < num_final_layers - 1:
+                layers.append(nn.Dropout(dropout))
+            in_d = hidden_out
+        layers.append(nn.Linear(hidden_out, 1))
+        self.final_mlp = nn.Sequential(*layers)
 
     def forward(self,
                 tables_X, tables_m,

@@ -5,9 +5,11 @@ Edge = Tuple[str, str]
 
 
 class FeatureExtractor:
-    def __init__(self, plan: Dict, table_stats: Dict[str, Dict[str, Any]]):
+    def __init__(self, plan: Dict, table_stats: Dict[str, Dict[str, Any]],
+                 scan_norms: Optional[Dict[str, Dict[str, float]]] = None):
         self.plan = plan
         self.table_stats = table_stats
+        self.scan_norms = scan_norms or {}
 
     def extract_features_for_tables(self) -> Tuple[List[str], List[List[float]], Dict[str, int]]:
         """
@@ -202,35 +204,141 @@ class FeatureExtractor:
             all_tables = sorted(self.table_stats.keys())
             return {t: i for i, t in enumerate(all_tables)}
 
-        def _get_tables_used_in_plan(node: Dict[str, Any], distinct_tables: set):
+        # ── Scan-type vocabulary (6 categories) ─────────────────────
+        SCAN_TYPES = [
+            "Seq Scan",
+            "Index Scan",
+            "Index Only Scan",
+            "Bitmap Heap Scan",
+            "Bitmap Index Scan",
+            "Other",
+        ]
+        _scan_type_to_idx = {s: i for i, s in enumerate(SCAN_TYPES)}
+
+        # Scalar keys that need z-score normalization (from scan_norms)
+        SCAN_SCALAR_KEYS = [
+            "scan_est_card_log",
+            "scan_est_loops_log",
+            "scan_selectivity",
+            "total_scan_work_log",
+            "num_local_filters",
+        ]
+
+        def _count_atomic_filters(filt: Any) -> int:
+            """Count atomic filter predicates (recursing through AND/OR/NOT)."""
+            if not isinstance(filt, dict):
+                return 0
+            op = (filt.get("operator") or "").upper()
+            if "children" in filt and isinstance(filt["children"], list) and op in {"AND", "OR", "NOT"}:
+                return sum(_count_atomic_filters(ch) for ch in filt["children"])
+            # atomic filter
+            if "table_name" in filt and "col_name" in filt:
+                return 1
+            return 0
+
+        def _has_any_index_cond(filt: Any) -> bool:
+            """Return True if any atomic predicate has is_index_cond=True."""
+            if not isinstance(filt, dict):
+                return False
+            op = (filt.get("operator") or "").upper()
+            if "children" in filt and isinstance(filt["children"], list) and op in {"AND", "OR", "NOT"}:
+                return any(_has_any_index_cond(ch) for ch in filt["children"])
+            return bool(filt.get("is_index_cond"))
+
+        def _get_tables_and_scan_info(node: Dict[str, Any],
+                                      scan_info: Dict[str, Dict[str, Any]]):
             """
-                DFS over the plan tree; add table names found in node['plan_parameters']
+            DFS over plan tree.  For each node with table_name, record scan info.
+            If a table appears in multiple nodes (e.g. self-join),
+            we keep the scan with the largest total work (est_card × est_loops).
             """
-            plan_parameters = node.get("plan_parameters", {})
-            t = plan_parameters.get("table_name")
-            if isinstance(t, str) and t:
-                distinct_tables.add(t)
+            pp = node.get("plan_parameters", {})
+            tname = pp.get("table_name")
+            if isinstance(tname, str) and tname:
+                est_card = float(pp.get("est_card") or 0.0)
+                est_loops = float(pp.get("est_loops") or 1.0)
+                total_work = est_card * est_loops
+
+                # Keep scan with largest total_work for this table
+                prev = scan_info.get(tname)
+                if prev is None or total_work > prev.get("_total_work", 0.0):
+                    filt = pp.get("filter")
+                    scan_info[tname] = {
+                        "op_name": pp.get("op_name", ""),
+                        "est_card": est_card,
+                        "est_loops": est_loops,
+                        "_total_work": total_work,
+                        "has_index_cond": _has_any_index_cond(filt) if filt else False,
+                        "num_filters": _count_atomic_filters(filt) if filt else 0,
+                    }
             for child in node.get("children", []):
-                _get_tables_used_in_plan(child, distinct_tables)
+                _get_tables_and_scan_info(child, scan_info)
+
+        def _norm_scan_val(x: float, key: str) -> float:
+            """Z-score normalize a scan scalar using pre-computed scan_norms."""
+            spec = self.scan_norms.get(key)
+            if not spec:
+                return x
+            p1, p99 = spec.get("p1", x), spec.get("p99", x)
+            mean, std = spec.get("mean", 0.0), spec.get("std", 1.0) or 1.0
+            if x < p1: x = p1
+            if x > p99: x = p99
+            return (x - mean) / std
 
         tab2idx = _build_table_index_map()
         K = len(tab2idx)
-        tables_used_in_plan = set()
-        _get_tables_used_in_plan(self.plan, tables_used_in_plan)
+        # Collect scan-level info per table via DFS
+        scan_info: Dict[str, Dict[str, Any]] = {}
+        _get_tables_and_scan_info(self.plan, scan_info)
+
         feature_vectors = []
         feature_tables = []
         total_rows = sum((t.get("tableSize")) for t in self.table_stats.values())
         norms = get_table_norm_stats(total_rows)
-        for table_in_plan in sorted(tables_used_in_plan):
+
+        # Build feature vectors for each table that appears in the plan
+        for table_in_plan in sorted(scan_info.keys()):
             if table_in_plan not in tab2idx:
-                # handle case where table is not in table_stats
                 continue
+
+            # ── One-hot table ID ──
             row = [0.0] * K
             row[tab2idx[table_in_plan]] = 1.0
+
+            # ── Static schema scalars (14 dims) ──
             rec = self.table_stats.get(table_in_plan)
             raw = compute_table_scalars(rec, total_rows)
             scalars_norm = [_norm_val(raw[k], k, norms) for k in TABLE_SCALAR_KEYS]
-            feature_vectors.append(row+scalars_norm)
+
+            # ── Scan-level features (13 dims) ──
+            si = scan_info.get(table_in_plan, {})
+
+            # Scan type one-hot (6 dims)
+            op_name = si.get("op_name", "")
+            scan_idx = _scan_type_to_idx.get(op_name, _scan_type_to_idx["Other"])
+            scan_onehot = [0.0] * len(SCAN_TYPES)
+            scan_onehot[scan_idx] = 1.0
+
+            # Scan scalars (5 dims, z-score normalized)
+            est_card = si.get("est_card", 0.0)
+            est_loops = si.get("est_loops", 1.0)
+            table_rows = float((rec or {}).get("tableSize", 0.0) or 0.0)
+            selectivity = min(est_card / max(table_rows, 1.0), 1.0) if table_rows > 0 else 0.0
+
+            scan_scalars_raw = {
+                "scan_est_card_log": math.log1p(est_card),
+                "scan_est_loops_log": math.log1p(est_loops),
+                "scan_selectivity": selectivity,
+                "total_scan_work_log": math.log1p(est_card * est_loops),
+                "num_local_filters": float(si.get("num_filters", 0)),
+            }
+            scan_scalars_norm = [_norm_scan_val(scan_scalars_raw[k], k) for k in SCAN_SCALAR_KEYS]
+
+            # Binary flag: has_index_cond (1 dim)
+            has_idx_cond = 1.0 if si.get("has_index_cond", False) else 0.0
+
+            # Assemble: one_hot_table + schema_scalars + scan_onehot + scan_scalars + has_index_cond
+            feature_vectors.append(row + scalars_norm + scan_onehot + scan_scalars_norm + [has_idx_cond])
             feature_tables.append(table_in_plan)
         return feature_tables, feature_vectors, tab2idx
 

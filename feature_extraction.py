@@ -14,8 +14,8 @@ from feature_extractor import FeatureExtractor
 
 
 def extract_feature(plan: Dict, table_stats: Dict[str, Dict[str, Any]], edge_to_id, algo_to_id, op_to_id, norms, md,
-                    col_to_id, pred_op_to_id, col_norms) -> Any:
-    feature_extractor = FeatureExtractor(plan, table_stats)
+                    col_to_id, pred_op_to_id, col_norms, scan_norms=None) -> Any:
+    feature_extractor = FeatureExtractor(plan, table_stats, scan_norms=scan_norms)
     table_features, feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
     join_features = feature_extractor.extract_features_for_joins(edge_to_id, algo_to_id, op_to_id, norms, md)
     pred_features = feature_extractor.extract_feature_for_predicates(col_to_id, pred_op_to_id, col_norms)
@@ -340,6 +340,79 @@ def build_predicate_norm_stats(parsed_plans, column_to_id):
     return stats
 
 
+def build_scan_norm_stats(parsed_plans: List[Any], table_column_map: Dict[str, Dict[str, Any]]) -> Dict[
+    str, Dict[str, float]]:
+    """
+    Scan all training plans and collect normalization statistics for scan-level
+    features: scan_est_card_log, scan_est_loops_log, scan_selectivity,
+    total_scan_work_log, num_local_filters.
+    """
+    SCAN_SCALAR_KEYS = [
+        "scan_est_card_log",
+        "scan_est_loops_log",
+        "scan_selectivity",
+        "total_scan_work_log",
+        "num_local_filters",
+    ]
+    buckets: Dict[str, List[float]] = {k: [] for k in SCAN_SCALAR_KEYS}
+
+    def _count_atomic(filt: Any) -> int:
+        if not isinstance(filt, dict):
+            return 0
+        op = (filt.get("operator") or "").upper()
+        if "children" in filt and isinstance(filt["children"], list) and op in {"AND", "OR", "NOT"}:
+            return sum(_count_atomic(ch) for ch in filt["children"])
+        if "table_name" in filt and "col_name" in filt:
+            return 1
+        return 0
+
+    def _dfs(node: Dict[str, Any]):
+        pp = node.get("plan_parameters", {})
+        tname = pp.get("table_name")
+        if isinstance(tname, str) and tname:
+            est_card = float(pp.get("est_card") or 0.0)
+            est_loops = float(pp.get("est_loops") or 1.0)
+            table_rows = float((table_column_map.get(tname, {}).get("tableSize") or 0.0))
+            selectivity = min(est_card / max(table_rows, 1.0), 1.0) if table_rows > 0 else 0.0
+
+            filt = pp.get("filter")
+            num_filters = _count_atomic(filt) if isinstance(filt, dict) else 0
+
+            buckets["scan_est_card_log"].append(math.log1p(est_card))
+            buckets["scan_est_loops_log"].append(math.log1p(est_loops))
+            buckets["scan_selectivity"].append(selectivity)
+            buckets["total_scan_work_log"].append(math.log1p(est_card * est_loops))
+            buckets["num_local_filters"].append(float(num_filters))
+
+        for ch in node.get("children", []):
+            _dfs(ch)
+
+    for plan in parsed_plans:
+        _dfs(plan)
+
+    # Reduce to {mean, std, p1, p99} per key
+    stats: Dict[str, Dict[str, float]] = {}
+    for key, arr in buckets.items():
+        if not arr:
+            continue
+        arr_sorted = sorted(arr)
+        n = len(arr_sorted)
+        mean = sum(arr_sorted) / n
+        var = sum((x - mean) ** 2 for x in arr_sorted) / max(n - 1, 1)
+        std = math.sqrt(var)
+        if std < 1e-12:
+            std = 1.0
+        p1_idx = int(0.01 * (n - 1))
+        p99_idx = int(0.99 * (n - 1))
+        stats[key] = {
+            "mean": mean,
+            "std": std,
+            "p1": arr_sorted[p1_idx],
+            "p99": arr_sorted[p99_idx],
+        }
+    return stats
+
+
 def extract_features(file_path: str, build_stats: bool = False):
     """
     Extracts features and labels from the provided JSON file.
@@ -363,6 +436,7 @@ def extract_features(file_path: str, build_stats: bool = False):
         edge_to_id, algo_to_id, op_to_id, norms, md = get_edge_dictionary_and_join_stats(plans)
         col_to_id, preop_to_id = build_predicate_vocabs(plans, column_stats)
         pred_norm_stats = build_predicate_norm_stats(plans, col_to_id)
+        scan_norm_stats = build_scan_norm_stats(plans, table_column_map)
         save_stats({
             'table_column_map': table_column_map,
             'edge_to_id': edge_to_id,
@@ -373,6 +447,7 @@ def extract_features(file_path: str, build_stats: bool = False):
             'col_to_id': col_to_id,
             'pred_norm_stats': pred_norm_stats,
             'preop_to_id': preop_to_id,
+            'scan_norm_stats': scan_norm_stats,
         }, "stats.json")
     else:
         full_path = Path(__file__).resolve().parent / "stats.json"
@@ -386,6 +461,7 @@ def extract_features(file_path: str, build_stats: bool = False):
         col_to_id = stats["col_to_id"]
         pred_norm_stats = stats["pred_norm_stats"]
         preop_to_id = stats["preop_to_id"]
+        scan_norm_stats = stats.get("scan_norm_stats", {})
     feature_vectors = []
     for plan in plans:
         # extract label
@@ -399,7 +475,8 @@ def extract_features(file_path: str, build_stats: bool = False):
         sql = plan.pop("sql")
         # extract feature information
         features = extract_feature(plan, table_column_map, edge_to_id, algo_to_id,
-                                   op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats)
+                                   op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats,
+                                   scan_norm_stats)
         feature_vectors.append({
             'sql': sql,
             'features': features,

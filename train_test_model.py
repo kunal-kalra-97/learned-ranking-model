@@ -11,8 +11,9 @@ from model.ranking_model_wrapper import RankingModelWrapper
 def load_features_from_file(file_path):
     """Load JSON data from a file."""
     with open(file_path, 'r') as f:
-        data  = json.load(f)
+        data = json.load(f)
     return data
+
 
 def extract_runtime_from_labels(data):
     labels = []
@@ -23,7 +24,8 @@ def extract_runtime_from_labels(data):
 
     return labels
 
-def organize_as_ranking_benchmark(df:pd.DataFrame)->List[Dict[str,Any]]:
+
+def organize_as_ranking_benchmark(df: pd.DataFrame) -> List[Dict[str, Any]]:
     """
     Organize the per-query features and labels as a ranking benchmark.
     For this we group by the sql query. The task is then to pick the fastest plan for each query.
@@ -41,6 +43,7 @@ def organize_as_ranking_benchmark(df:pd.DataFrame)->List[Dict[str,Any]]:
         })
     return ranking_benchmark
 
+
 def main(args):
     # Load features and labels
     data = load_features_from_file(args.train_data)
@@ -50,24 +53,18 @@ def main(args):
     train_df = pd.DataFrame(data)
     test_df = pd.DataFrame(test_data)
     batch_samples = train_df['features'].tolist()
-    # batch_labels = train_df['label'].tolist()
     ft, fj, fp = infer_feature_dims_from_dataset(batch_samples)
 
-    # # extract info
-    # train_sql = train_df['sql'].to_numpy()
-    #
-    # train_features = np.array(train_df['features'].tolist())
-    # train_runtimes = train_df['label'].to_numpy()
-
     # Initialize and train the model
-    model = RankingModelWrapper(feature_dims = (ft, fj, fp))
+    model = RankingModelWrapper(feature_dims=(ft, fj, fp))
     model.fit()
-    
+
     # Dump the model for later be used in the evaluation platform
     joblib.dump(model, 'model/model.pkl')
     # organize test data as ranking test
     ranking_benchmark = organize_as_ranking_benchmark(test_df)
     evaluate_model(ranking_benchmark)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Load features and labels from the provided JSON file.")
