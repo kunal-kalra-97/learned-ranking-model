@@ -1,43 +1,12 @@
-import copy
-import time
 from typing import List, Tuple, Any
 
-import numpy as np
 import torch
+import numpy as np
 from torch import optim, nn
 
 from model.data_utils import make_mscn_batch
 from model.mscn_dataset import make_dataloaders
 from model.mscn_model import MSCNModel
-
-
-class EarlyStopping:
-    """Stop training when validation loss stops improving."""
-
-    def __init__(self, patience: int = 10, min_delta: float = 1e-4):
-        self.patience = patience
-        self.min_delta = min_delta
-        self.best_loss = float("inf")
-        self.best_epoch = 0
-        self.counter = 0
-        self.best_state = None
-
-    def step(self, val_loss: float, epoch: int, model: nn.Module) -> bool:
-        """Returns True if training should stop."""
-        if val_loss < self.best_loss - self.min_delta:
-            self.best_loss = val_loss
-            self.best_epoch = epoch
-            self.counter = 0
-            self.best_state = copy.deepcopy(model.state_dict())
-            return False
-        else:
-            self.counter += 1
-            return self.counter >= self.patience
-
-    def restore_best(self, model: nn.Module):
-        """Restore model to the best checkpoint."""
-        if self.best_state is not None:
-            model.load_state_dict(self.best_state)
 
 
 class RankingModelWrapper:
@@ -54,17 +23,19 @@ class RankingModelWrapper:
             pred_dim=Fp,
         ).to(device)
 
-
     def fit(self):
         train_model(self.model, feature_dims=self.feature_dims)
 
-
-    def inference(self, sql:str, plan_candidates_features:List[List[float]])->int:
+    def inference(self, sql: str, plan_candidates_features: List[List[float]]) -> int:
         device = torch.device("cpu")
         if torch.cuda.is_available():
             device = torch.device("cuda")
 
+        # since the demo uses a cost-model approach, we predict the runtime for each plan candidate
+        # data = np.array(plan_candidates_features)
         predictions = predict(self.model, plan_candidates_features, self.feature_dims, device=device)
+
+        # return the index of the plan with the lowest predicted runtime
         return int(np.argmin(predictions))
 
 
@@ -78,17 +49,16 @@ def train_one_epoch(model, loader, optimizer, device):
         tables_X, tables_m, joins_X, joins_m, preds_X, preds_m, y = batch
         tables_X = tables_X.to(device)
         tables_m = tables_m.to(device)
-        joins_X  = joins_X.to(device)
-        joins_m  = joins_m.to(device)
-        preds_X  = preds_X.to(device)
-        preds_m  = preds_m.to(device)
-        y        = y.to(device)
+        joins_X = joins_X.to(device)
+        joins_m = joins_m.to(device)
+        preds_X = preds_X.to(device)
+        preds_m = preds_m.to(device)
+        y = y.to(device)
 
         optimizer.zero_grad()
         y_pred = model(tables_X, tables_m, joins_X, joins_m, preds_X, preds_m)
         loss = loss_fn(y_pred, y)
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         bs = y.size(0)
@@ -109,11 +79,11 @@ def evaluate(model, loader, device):
         tables_X, tables_m, joins_X, joins_m, preds_X, preds_m, y = batch
         tables_X = tables_X.to(device)
         tables_m = tables_m.to(device)
-        joins_X  = joins_X.to(device)
-        joins_m  = joins_m.to(device)
-        preds_X  = preds_X.to(device)
-        preds_m  = preds_m.to(device)
-        y        = y.to(device)
+        joins_X = joins_X.to(device)
+        joins_m = joins_m.to(device)
+        preds_X = preds_X.to(device)
+        preds_m = preds_m.to(device)
+        y = y.to(device)
 
         y_pred = model(tables_X, tables_m, joins_X, joins_m, preds_X, preds_m)
         loss = loss_fn(y_pred, y)
@@ -123,6 +93,7 @@ def evaluate(model, loader, device):
         total_n += bs
 
     return total_loss / max(total_n, 1)
+
 
 @torch.no_grad()
 def predict(model, plan_candidates_features: List[Any], feature_dims, device):
@@ -139,46 +110,33 @@ def predict(model, plan_candidates_features: List[Any], feature_dims, device):
     # Move to device
     tables_X = tables_X.to(device)
     tables_m = tables_m.to(device)
-    joins_X  = joins_X.to(device)
-    joins_m  = joins_m.to(device)
-    preds_X  = preds_X.to(device)
-    preds_m  = preds_m.to(device)
+    joins_X = joins_X.to(device)
+    joins_m = joins_m.to(device)
+    preds_X = preds_X.to(device)
+    preds_m = preds_m.to(device)
 
     # Forward pass
     y_pred = model(
         tables_X, tables_m,
-        joins_X,  joins_m,
-        preds_X,  preds_m,
+        joins_X, joins_m,
+        preds_X, preds_m,
     )
     return y_pred.cpu().numpy()
 
 
-def train_model(model, batch_size=64, epochs=25, lr=5e-4, feature_dims: Tuple[int, int, int] = None):
+def train_model(model, batch_size=64, epochs=15, lr=1e-3, feature_dims: Tuple[int, int, int] = None):
     device = torch.device("cpu")
     if torch.cuda.is_available():
         device = torch.device("cuda")
 
     train_loader, test_loader = make_dataloaders(
-        batch_size = batch_size,
-        feature_dims = feature_dims
+        batch_size=batch_size,
+        feature_dims=feature_dims
     )
 
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=lr * 0.01)
-    early_stop = EarlyStopping(patience=10, min_delta=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
 
     for epoch in range(1, epochs + 1):
         train_loss = train_one_epoch(model, train_loader, optimizer, device)
-        val_loss   = evaluate(model, test_loader, device)
-        scheduler.step()
-
-        should_stop = early_stop.step(val_loss, epoch, model)
-        marker = " *" if val_loss <= early_stop.best_loss + 1e-4 else ""
-        print(f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}{marker}")
-
-        if should_stop:
-            print(f"Early stopping at epoch {epoch} (patience=10)")
-            break
-
-    early_stop.restore_best(model)
-    print(f"Restored best model from epoch {early_stop.best_epoch} (val_loss={early_stop.best_loss:.4f})")
+        val_loss = evaluate(model, test_loader, device)
+        print(f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}")

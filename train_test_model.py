@@ -53,7 +53,14 @@ def main(args):
     train_df = pd.DataFrame(data)
     test_df = pd.DataFrame(test_data)
     batch_samples = train_df['features'].tolist()
+    # batch_labels = train_df['label'].tolist()
     ft, fj, fp = infer_feature_dims_from_dataset(batch_samples)
+
+    # # extract info
+    # train_sql = train_df['sql'].to_numpy()
+    #
+    # train_features = np.array(train_df['features'].tolist())
+    # train_runtimes = train_df['label'].to_numpy()
 
     # Initialize and train the model
     model = RankingModelWrapper(feature_dims=(ft, fj, fp))
