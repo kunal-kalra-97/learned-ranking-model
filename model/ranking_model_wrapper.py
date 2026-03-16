@@ -1,4 +1,5 @@
 from typing import List, Tuple, Any
+import copy
 
 import torch
 import numpy as np
@@ -24,7 +25,7 @@ class RankingModelWrapper:
         ).to(device)
 
     def fit(self):
-        train_model(self.model, feature_dims=self.feature_dims)
+        self.history = train_model(self.model, feature_dims=self.feature_dims)
 
     def inference(self, sql: str, plan_candidates_features: List[List[float]]) -> int:
         device = torch.device("cpu")
@@ -41,7 +42,7 @@ class RankingModelWrapper:
 
 def train_one_epoch(model, loader, optimizer, device):
     model.train()
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.HuberLoss(delta=1.0)
     total_loss = 0.0
     total_n = 0
 
@@ -59,6 +60,7 @@ def train_one_epoch(model, loader, optimizer, device):
         y_pred = model(tables_X, tables_m, joins_X, joins_m, preds_X, preds_m)
         loss = loss_fn(y_pred, y)
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         bs = y.size(0)
@@ -71,7 +73,7 @@ def train_one_epoch(model, loader, optimizer, device):
 @torch.no_grad()
 def evaluate(model, loader, device):
     model.eval()
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.HuberLoss(delta=1.0)
     total_loss = 0.0
     total_n = 0
 
@@ -124,7 +126,7 @@ def predict(model, plan_candidates_features: List[Any], feature_dims, device):
     return y_pred.cpu().numpy()
 
 
-def train_model(model, batch_size=64, epochs=15, lr=1e-3, feature_dims: Tuple[int, int, int] = None):
+def train_model(model, batch_size=64, epochs=50, lr=1e-3, feature_dims: Tuple[int, int, int] = None):
     device = torch.device("cpu")
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -134,9 +136,48 @@ def train_model(model, batch_size=64, epochs=15, lr=1e-3, feature_dims: Tuple[in
         feature_dims=feature_dims
     )
 
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", patience=3, factor=0.5, min_lr=1e-6
+    )
 
+    # Early stopping state
+    patience = 7
+    best_val_loss = float("inf")
+    best_epoch = 0
+    epochs_without_improvement = 0
+    best_state = None
+
+    history = {"train_loss": [], "val_loss": []}
     for epoch in range(1, epochs + 1):
         train_loss = train_one_epoch(model, train_loader, optimizer, device)
         val_loss = evaluate(model, test_loader, device)
-        print(f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}")
+        history["train_loss"].append(train_loss)
+        history["val_loss"].append(val_loss)
+
+        scheduler.step(val_loss)
+        current_lr = optimizer.param_groups[0]["lr"]
+
+        # Early stopping check
+        if val_loss < best_val_loss - 1e-4:
+            best_val_loss = val_loss
+            best_epoch = epoch
+            epochs_without_improvement = 0
+            best_state = copy.deepcopy(model.state_dict())
+            marker = " *"
+        else:
+            epochs_without_improvement += 1
+            marker = ""
+
+        print(f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}, lr={current_lr:.2e}{marker}")
+
+        if epochs_without_improvement >= patience:
+            print(f"Early stopping at epoch {epoch} (no improvement for {patience} epochs)")
+            break
+
+    # Restore best checkpoint
+    if best_state is not None:
+        model.load_state_dict(best_state)
+        print(f"Restored best model from epoch {best_epoch} (val_loss={best_val_loss:.4f})")
+
+    return history

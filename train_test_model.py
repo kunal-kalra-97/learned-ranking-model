@@ -44,6 +44,28 @@ def organize_as_ranking_benchmark(df: pd.DataFrame) -> List[Dict[str, Any]]:
     return ranking_benchmark
 
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+
+def plot_training_curve(history, save_path="training_curve.png"):
+    """Save a train/val loss plot to disk."""
+    epochs = range(1, len(history["train_loss"]) + 1)
+    plt.figure(figsize=(8, 5))
+    plt.plot(epochs, history["train_loss"], "o-", label="Train Loss", linewidth=2)
+    plt.plot(epochs, history["val_loss"], "s-", label="Val Loss", linewidth=2)
+    plt.xlabel("Epoch")
+    plt.ylabel("MSE Loss (log1p scale)")
+    plt.title("Training Curve")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150)
+    plt.close()
+    print(f"Training curve saved to {save_path}")
+
+
 def main(args):
     # Load features and labels
     data = load_features_from_file(args.train_data)
@@ -56,15 +78,12 @@ def main(args):
     # batch_labels = train_df['label'].tolist()
     ft, fj, fp = infer_feature_dims_from_dataset(batch_samples)
 
-    # # extract info
-    # train_sql = train_df['sql'].to_numpy()
-    #
-    # train_features = np.array(train_df['features'].tolist())
-    # train_runtimes = train_df['label'].to_numpy()
-
     # Initialize and train the model
     model = RankingModelWrapper(feature_dims=(ft, fj, fp))
     model.fit()
+
+    # Plot training curve
+    plot_training_curve(model.history)
 
     # Dump the model for later be used in the evaluation platform
     joblib.dump(model, 'model/model.pkl')
