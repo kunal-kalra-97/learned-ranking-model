@@ -36,7 +36,6 @@ model/
 ### Commands to Run
 
 ```bash
-# 1. Setup
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
@@ -281,24 +280,16 @@ Within each batch, sets are zero-padded to the maximum set size and the mask ind
 
 ### Early Stopping
 
-Training is monitored on validation loss. If validation loss does not improve by at least 1e-4 for 7 consecutive epochs, training stops and the model weights are restored to the best checkpoint. This prevents overfitting: without early stopping, the model begins memorizing the training set around epoch 4-5, with validation loss diverging upward while training loss continues to decrease.
-
-### Learning Rate Schedule
-
-We use `ReduceLROnPlateau` (patience=3, factor=0.5, min_lr=1e-6). When validation loss plateaus for 3 epochs, the learning rate is halved. This allows the model to converge faster initially with a high learning rate, then fine-tune with a lower learning rate to reduce oscillation in the validation curve.
-
-### Training Details
-
-- Gradient clipping (max_norm=1.0) prevents gradient explosions that cause large oscillations in validation loss
-- Weight decay (1e-5) provides light L2 regularization to reduce overfitting
-- Training time is approximately 160 seconds on CPU
-- The model converges within roughly 3-5 epochs; early stopping restores the best checkpoint
-- NaN and Inf values in feature tensors are replaced with 0.0 before batching
-
+Monitors validation loss. Stops after 7 epochs without improvement and restores the best checkpoint weights.
 
 ### Training Curve
 
 ![Training Curve](training_curve.png)
+
+- Early stopping triggered at epoch 12 (no improvement for 7 epochs)
+- Best model restored from epoch 5 (val_loss=0.1467)
+- Both losses drop rapidly in epochs 1-3, then overfit begins after epoch 5
+- The train-val gap and validation oscillation after epoch 5 motivated the addition of early stopping, LR scheduling, and gradient clipping
 
 ---
 
@@ -306,13 +297,17 @@ We use `ReduceLROnPlateau` (patience=3, factor=0.5, min_lr=1e-6). When validatio
 
 ### Metric
 
-The evaluation metric is the sum of picked runtimes (in seconds): for each query in the test set, the model selects one plan from the candidates, and the actual runtime of that plan is summed across all queries. Lower is better. A perfect model would always pick the fastest plan (the oracle).
+Sum of picked runtimes (seconds) across all test queries. Lower is better.
 
 ### Results
 
 | Metric | Value |
 |---|---|
-| Server test score (sum of picked runtimes) | **270.04s** |
+| Server test score | **270.04s** |
+| Local test score | 1092.87s |
+| Best epoch / val_loss | 5 / 0.1467 |
+| Early stopping epoch | 12 |
+| Training time | ~160s (CPU) |
 
 ---
 
@@ -320,24 +315,28 @@ The evaluation metric is the sum of picked runtimes (in seconds): for each query
 
 ### Scan-Level Features
 
-The most impactful improvement was adding 12 scan-level features to each table's feature vector. Without these, two plans accessing the same table via completely different strategies (e.g. a sequential scan returning millions of rows vs. an index scan with millions of loop iterations returning 1 row per probe) would have identical table features. The scan features (scan type one-hot, estimated cardinality, loop count, selectivity, total work, filter count, and index condition flag) close this gap. Normalization statistics for the scan features are computed from the training set and stored in `stats.json` alongside the existing vocabularies.
-
-### Rich Join Feature Engineering
-
-Beyond the basic MSCN table/join/predicate split, each join node carries 10 continuous features capturing the planner's cardinality estimates, loop counts, selectivity, tree depth, and structural hints (left-deep detection, root-join flag). These are all z-score normalized using training-set statistics clipped to [p1, p99] to handle outliers. This was inspired by the Ganapathi et al. (ICDE 2009) finding that plan-level operator features dramatically outperform SQL-text features for runtime prediction.
+Added 12 features per table capturing how each table is accessed in the plan (scan type, cardinality, loops, selectivity, index conditions). Without these, plans with different scan strategies on the same table were indistinguishable. This was the highest-impact change.
 
 ### Huber Loss
 
-Switching from MSE to Huber loss (delta=1.0) made training more robust to outlier runtimes. Plans with extreme runtimes (timeouts, pathologically slow execution) produce large residuals that dominate MSE gradients. Huber loss applies linear (MAE-like) penalty to these large errors instead of quadratic, so they no longer destabilize training.
+Replaced MSE with Huber loss (delta=1.0) to reduce the influence of outlier runtimes on gradient updates. MSE squares large residuals, which causes training instability; Huber applies linear penalty beyond the delta threshold.
 
 ### Combined Training Data
 
-Using both provided training files instead of just one roughly doubled the training set size. The extra data directly reduced overfitting, which was the main issue visible in the training curve.
+Merging both training files roughly doubled the training set, directly reducing the overfitting visible in the training curve.
 
-### Predicate Flattening with Boolean Tree Recursion
+### Join Feature Engineering
 
-Filter predicates in PostgreSQL plans can be nested boolean trees (AND/OR/NOT with children). Rather than encoding the tree structure, we recursively flatten these into atomic predicates, each encoded uniformly with column identity, operator, literal value, and index-condition flag. This keeps the predicate set representation simple while preserving all filtering information.
+Each join node carries 10 continuous features (cardinality estimates, loops, selectivity, depth, left-deep hints), z-scored with clipping. Inspired by Ganapathi et al. (ICDE 2009).
+
+### Predicate Flattening
+
+Nested boolean filter trees (AND/OR/NOT) are recursively flattened into uniform atomic predicates with column, operator, literal, and index-condition encoding.
+
+### Clip-then-Z-Score Normalization
+
+All continuous features are clipped to [p1, p99] of the training distribution before z-scoring, preventing extreme outliers from dominating the feature space.
 
 ### Masked Mean Pooling
 
-The variable-length sets are handled via masked mean pooling rather than sum pooling. This makes the set representation invariant to the number of elements (a 2-table join and a 5-table join produce comparable-magnitude vectors), which improves training stability.
+Mean pooling (rather than sum) over variable-length sets keeps representations invariant to set size, improving training stability.
