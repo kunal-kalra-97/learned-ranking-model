@@ -3,6 +3,7 @@ import math
 import os
 import re
 import argparse
+import time
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Set, Optional
@@ -12,29 +13,11 @@ import orjson
 from feature_extractor import FeatureExtractor
 
 
-def extract_feature(
-        plan: Dict,
-        table_stats: Dict[str, Dict[str, Any]],
-        edge_to_id,
-        algo_to_id,
-        op_to_id,
-        norms,
-        md,
-        join_key_norms,
-        col_to_id,
-        pred_op_to_id,
-        col_norms,
-) -> Any:
+def extract_feature(plan: Dict, table_stats: Dict[str, Dict[str, Any]], edge_to_id, algo_to_id, op_to_id, norms, md,
+                    col_to_id, pred_op_to_id, col_norms) -> Any:
     feature_extractor = FeatureExtractor(plan, table_stats)
     table_features, feature_vectors, tab2idx = feature_extractor.extract_features_for_tables()
-    join_features = feature_extractor.extract_features_for_joins(
-        edge_to_id,
-        algo_to_id,
-        op_to_id,
-        norms,
-        md,
-        join_key_norms,
-    )
+    join_features = feature_extractor.extract_features_for_joins(edge_to_id, algo_to_id, op_to_id, norms, md)
     pred_features = feature_extractor.extract_feature_for_predicates(col_to_id, pred_op_to_id, col_norms)
 
     return [feature_vectors, join_features, pred_features]
@@ -63,14 +46,13 @@ def extract_table_column_map(column_stats: List, table_stats: List) -> Dict[str,
 
     """
 
-    table_column_map:Dict[str, Dict[str, Any]] = {}
+    table_column_map: Dict[str, Dict[str, Any]] = {}
 
     for table_stat in table_stats:
         table_name = table_stat['relname']
         if table_name not in table_column_map:
             table_column_map[table_name] = {
-                "tableSize": table_stat.get("reltuples") or 0.0,
-                "tablePages": table_stat.get("relpages") or 0.0,
+                "tableSize": table_stat["reltuples"] or 0.0,
                 "columns": []
             }
 
@@ -87,104 +69,8 @@ def extract_table_column_map(column_stats: List, table_stats: List) -> Dict[str,
     return table_column_map
 
 
-def build_join_key_norms(parsed_plans: List[Any], table_column_map: Dict[str, Dict[str, Any]]):
-    """Collect distribution stats for join-key column scalars, so join features can be z-scored.
-
-    Aggregate across both join sides (left+right) for each scalar:
-      - key_null_frac
-      - key_ndv_ratio
-      - key_abs_corr
-      - key_avg_width_log
-    """
-    from collections import defaultdict
-    import math
-
-    def _estimate_ndv(n_distinct, table_rows: float) -> float:
-        if n_distinct is None:
-            return 0.0
-        try:
-            nd = float(n_distinct)
-        except Exception:
-            return 0.0
-        rows = max(float(table_rows or 0.0), 0.0)
-        if nd >= 0:
-            return nd
-        return max(-nd * rows, 0.0)
-
-    # Build a quick lookup: table.col -> stats dict
-    col_lookup = {}
-    for tname, trec in table_column_map.items():
-        rows = float(trec.get("tableSize") or 0.0)
-        for c in trec.get("columns") or []:
-            cname = c.get("colName")
-            if not cname:
-                continue
-            col_lookup[f"{tname}.{cname}"] = {
-                "nullFrac": float(c.get("nullFrac") or 0.0),
-                "avgWidth": float(c.get("avgWidth") or 0.0),
-                "nDistinct": c.get("nDistinct"),
-                "correlation": float(c.get("correlation") or 0.0),
-                "tableRows": rows,
-            }
-
-    buckets = defaultdict(list)
-
-    def _push(k, v):
-        if v is None:
-            return
-        buckets[k].append(float(v))
-
-    def _add_key_stats(table: str, col: str):
-        if not (isinstance(table, str) and isinstance(col, str)):
-            return
-        rec = col_lookup.get(f"{table}.{col}")
-        if not rec:
-            return
-        nf = float(rec.get("nullFrac") or 0.0)
-        aw = float(rec.get("avgWidth") or 0.0)
-        corr = abs(float(rec.get("correlation") or 0.0))
-        ndv = _estimate_ndv(rec.get("nDistinct"), rec.get("tableRows"))
-        denom = max(float(rec.get("tableRows") or 0.0), 1.0)
-        ndv_ratio = min(max(ndv / denom, 0.0), 1.0)
-
-        _push("key_null_frac", nf)
-        _push("key_ndv_ratio", ndv_ratio)
-        _push("key_abs_corr", corr)
-        _push("key_avg_width_log", math.log1p(max(aw, 0.0)))
-
-    def dfs(node: Dict[str, Any]):
-        pp = node.get("plan_parameters", {})
-        j = pp.get("join")
-        if isinstance(j, dict):
-            t1 = j.get("table_name1")
-            c1 = j.get("column_name1") or j.get("col_name1") or j.get("col1")
-            t2 = j.get("table_name2")
-            c2 = j.get("column_name2") or j.get("col_name2") or j.get("col2")
-            _add_key_stats(t1, c1)
-            _add_key_stats(t2, c2)
-        for ch in node.get("children", []) or []:
-            dfs(ch)
-
-    for pl in parsed_plans:
-        dfs(pl)
-
-    norms = {}
-    for k, arr in buckets.items():
-        arr_sorted = sorted(arr)
-        n = len(arr_sorted)
-        if n == 0:
-            norms[k] = {"mean": 0.0, "std": 1.0, "p1": 0.0, "p99": 1.0}
-            continue
-        mean = sum(arr_sorted) / n
-        var = sum((x - mean) ** 2 for x in arr_sorted) / max(n - 1, 1)
-        std = (var ** 0.5) or 1.0
-        p1 = arr_sorted[int(0.01 * (n - 1))]
-        p99 = arr_sorted[int(0.99 * (n - 1))]
-        norms[k] = {"mean": mean, "std": std, "p1": p1, "p99": p99}
-    return norms
-
-
 Edge = Tuple[str, str]
+
 
 def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     """
@@ -204,7 +90,7 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     norms = {}
 
     def _gather_join_edges_from_node(node: Dict, edges_list: List[Edge], algos_list: List[str], ops_list: List[str],
-                                     depth = 0):
+                                     depth=0):
         """
         DFS a single plan tree; append one edge per *join node* found in node['plan_parameters'].
         """
@@ -244,10 +130,9 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
         max_depth_here = new_depth
         for child in (node.get("children", [])):
             child_depth = _gather_join_edges_from_node(child, edges_list, algos_list, ops_list, new_depth)
-            max_depth_here =  max(new_depth, child_depth)
+            max_depth_here = max(new_depth, child_depth)
 
         return max_depth_here
-
 
     edges_seen: Set[Edge] = set()
     algos_seen: Set[str] = set()
@@ -282,12 +167,14 @@ def get_edge_dictionary_and_join_stats(parsed_plans: List[Any]):
     op_to_id["<UNK_OP>"] = len(op_to_id)
     return edge_to_id, algo_to_id, {k: v for k, v in op_to_id.items() if k not in algo_to_id}, norms, md
 
+
 def build_predicate_vocabs(parsed_plans, column_stats):
     """
     Returns:
       column_to_id : fixed mapping over schema columns (table_map) -> index in [0, |C|-1]
       predop_to_id : observed predicate operators -> index; includes '<UNK_OP>'
     """
+    # Columns: derive from schema (stable)
     cols = []
     for col in column_stats:
         c = col['attname']
@@ -297,6 +184,7 @@ def build_predicate_vocabs(parsed_plans, column_stats):
 
     # Operators: collect from filters and joins in training plans
     ops_seen: Set[str] = set()
+
     def dfs(node):
         plan_parameters = node["plan_parameters"]
         # filter operator
@@ -323,7 +211,8 @@ def build_predicate_vocabs(parsed_plans, column_stats):
     predop_to_id = {name: i for i, name in enumerate(op_list)}
     return column_to_id, predop_to_id
 
-def build_predicate_norm_stats(parsed_plans,column_to_id):
+
+def build_predicate_norm_stats(parsed_plans, column_to_id):
     """
     Scan training plans and collect numeric literal statistics per column:
       stats[col_key] = {mean, std, p1, p99}
@@ -356,6 +245,7 @@ def build_predicate_norm_stats(parsed_plans,column_to_id):
         buckets[col_key].append(float(v))
 
     _NUM_RE = re.compile(r"^[\s'\"]*([-+]?\d+(\.\d+)?)[\s'\%]*$")  # matches numbers like '123', "12.3", %99
+
     def _to_float_strict(x: Any) -> Optional[float]:
         """Return float if x is numeric or a quoted/percent-wrapped numeric string; else None."""
         if x is None:
@@ -449,7 +339,8 @@ def build_predicate_norm_stats(parsed_plans,column_to_id):
         }
     return stats
 
-def extract_features(file_path:str, build_stats: bool = False):
+
+def extract_features(file_path: str, build_stats: bool = False):
     """
     Extracts features and labels from the provided JSON file.
 
@@ -461,17 +352,15 @@ def extract_features(file_path:str, build_stats: bool = False):
     Returns:
         tuple: A tuple containing a list of feature vectors and corresponding labels.
     """
-    print("Extracting features")
-    with open(file_path, 'r') as file: 
+    with open(file_path, 'r') as file:
         json_data = json.load(file)
-    
+
     plans = json_data['parsed_plans']
     if build_stats:
         column_stats = json_data['database_stats']['column_stats']
         table_stats = json_data['database_stats']['table_stats']
         table_column_map = extract_table_column_map(column_stats, table_stats)
         edge_to_id, algo_to_id, op_to_id, norms, md = get_edge_dictionary_and_join_stats(plans)
-        join_key_norms = build_join_key_norms(plans, table_column_map)
         col_to_id, preop_to_id = build_predicate_vocabs(plans, column_stats)
         pred_norm_stats = build_predicate_norm_stats(plans, col_to_id)
         save_stats({
@@ -481,7 +370,6 @@ def extract_features(file_path:str, build_stats: bool = False):
             'op_to_id': op_to_id,
             'norms': norms,
             'md': md,
-            'join_key_norms': join_key_norms,
             'col_to_id': col_to_id,
             'pred_norm_stats': pred_norm_stats,
             'preop_to_id': preop_to_id,
@@ -495,7 +383,6 @@ def extract_features(file_path:str, build_stats: bool = False):
         op_to_id = stats["op_to_id"]
         norms = stats["norms"]
         md = stats["md"]
-        join_key_norms = stats.get("join_key_norms", {})
         col_to_id = stats["col_to_id"]
         pred_norm_stats = stats["pred_norm_stats"]
         preop_to_id = stats["preop_to_id"]
@@ -511,25 +398,15 @@ def extract_features(file_path:str, build_stats: bool = False):
         # extract query identifier (to map this plan to the corresponding query)
         sql = plan.pop("sql")
         # extract feature information
-        features = extract_feature(
-            plan,
-            table_column_map,
-            edge_to_id,
-            algo_to_id,
-            op_to_id,
-            norms,
-            md,
-            join_key_norms,
-            col_to_id,
-            preop_to_id,
-            pred_norm_stats,
-        )
+        features = extract_feature(plan, table_column_map, edge_to_id, algo_to_id,
+                                   op_to_id, norms, md, col_to_id, preop_to_id, pred_norm_stats)
         feature_vectors.append({
             'sql': sql,
             'features': features,
             'label': label
         })
     return feature_vectors
+
 
 def save_data(file_path, data):
     """
@@ -549,6 +426,7 @@ def save_data(file_path, data):
         os.makedirs(dir_name, exist_ok=True)
     with open(file_path, 'wb') as file:
         file.write(orjson.dumps(data))
+
 
 def _tuple_key_dict_to_str(d: dict, sep: str = "||") -> dict:
     """
@@ -573,6 +451,7 @@ def save_stats(stats, file_path):
 
     with open(file_path, "w") as f:
         json.dump(stats_json, f, indent=2)
+
 
 def _str_key_dict_to_tuple(d: dict, sep: str = "||") -> dict:
     """
@@ -599,6 +478,7 @@ def load_stats(file_path):
 
     return stats_json
 
+
 def main():
     parser = argparse.ArgumentParser(description="Extract features from the provided JSON file.")
     parser.add_argument("--file_path", type=str, help="Path to the input workload JSON file.", required=True)
@@ -608,6 +488,7 @@ def main():
     feature_vectors = extract_features(args.file_path, args.build_stats)
     save_data(args.output_path, feature_vectors)
     print("Feature vectors saved successfully!")
+
 
 if __name__ == "__main__":
     main()

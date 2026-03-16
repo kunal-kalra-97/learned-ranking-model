@@ -20,9 +20,6 @@ class FeatureExtractor:
         TABLE_SCALAR_KEYS = [
             "log_rows",
             "rows_frac",
-            "log_pages",
-            "pages_frac",
-            "rows_per_page",
             "approx_size_mb",
             "cols_count",
             "avg_col_width",
@@ -48,34 +45,22 @@ class FeatureExtractor:
             rows = max(table_rows, 0.0)
             if nd >= 0:
                 return nd
+            # negative ratio * rows
             return max(-nd * rows, 0.0)
 
-        def compute_table_scalars(
-            table_rec: Dict[str, Any],
-            total_rows_in_schema: float,
-            total_pages_in_schema: float,
-        ) -> Dict[str, float]:
+        def compute_table_scalars(table_rec: Dict[str, Any], total_rows_in_schema: float) -> Dict[str, float]:
+            # Be robust to missing keys / different stat formats
             cols = table_rec.get("columns") or []
             rows = table_rec.get("tableSize", None)
             if rows is None:
                 rows = table_rec.get("reltuples", None)
-
-            pages = table_rec.get("tablePages", None)
-            if pages is None:
-                pages = table_rec.get("relpages", None)
 
             try:
                 rows = float(rows) if rows is not None else 0.0
             except Exception:
                 rows = 0.0
 
-            try:
-                pages = float(pages) if pages is not None else 0.0
-            except Exception:
-                pages = 0.0
-
             rows_total = max(float(total_rows_in_schema or 0.0), 1.0)
-            pages_total = max(float(total_pages_in_schema or 0.0), 1.0)
 
             def _get_col_val(c: Dict[str, Any], *keys, default=None):
                 for k in keys:
@@ -157,15 +142,9 @@ class FeatureExtractor:
             # use avg_col_width * rows as rough payload size, bytes to MB
             approx_size_mb = (avg_col_width * rows) / (1024.0 * 1024.0) if rows > 0 else 0.0
 
-            # pages are a strong I/O proxy; rows_per_page is a density proxy
-            rows_per_page = (rows / pages) if pages > 0 else 0.0
-
             out = {
                 "log_rows": math.log1p(max(rows, 0.0)),
                 "rows_frac": rows / rows_total,
-                "log_pages": math.log1p(max(pages, 0.0)),
-                "pages_frac": pages / pages_total,
-                "rows_per_page": rows_per_page,
                 "approx_size_mb": approx_size_mb,
                 "cols_count": float(ncols),
                 "avg_col_width": avg_col_width,
@@ -181,10 +160,10 @@ class FeatureExtractor:
             }
             return out
 
-        def get_table_norm_stats(tr, tp):
+        def get_table_norm_stats(tr):
             buckets = {k: [] for k in TABLE_SCALAR_KEYS}
             for t in self.table_stats.values():
-                scalars = compute_table_scalars(t, tr, tp)
+                scalars = compute_table_scalars(t, tr)
                 for k in TABLE_SCALAR_KEYS:
                     buckets[k].append(scalars.get(k, 0.0))
             nor: Dict[str, Dict[str, float]] = {}
@@ -240,9 +219,8 @@ class FeatureExtractor:
         _get_tables_used_in_plan(self.plan, tables_used_in_plan)
         feature_vectors = []
         feature_tables = []
-        total_rows = sum(float(t.get("tableSize") or t.get("reltuples") or 0.0) for t in self.table_stats.values())
-        total_pages = sum(float(t.get("tablePages") or t.get("relpages") or 0.0) for t in self.table_stats.values())
-        norms = get_table_norm_stats(total_rows, total_pages)
+        total_rows = sum((t.get("tableSize")) for t in self.table_stats.values())
+        norms = get_table_norm_stats(total_rows)
         for table_in_plan in sorted(tables_used_in_plan):
             if table_in_plan not in tab2idx:
                 # handle case where table is not in table_stats
@@ -250,21 +228,13 @@ class FeatureExtractor:
             row = [0.0] * K
             row[tab2idx[table_in_plan]] = 1.0
             rec = self.table_stats.get(table_in_plan)
-            raw = compute_table_scalars(rec, total_rows, total_pages)
+            raw = compute_table_scalars(rec, total_rows)
             scalars_norm = [_norm_val(raw[k], k, norms) for k in TABLE_SCALAR_KEYS]
             feature_vectors.append(row+scalars_norm)
             feature_tables.append(table_in_plan)
         return feature_tables, feature_vectors, tab2idx
 
-    def extract_features_for_joins(
-        self,
-        edge_to_id,
-        algo_to_id,
-        op_to_id,
-        norms,
-        md,
-        join_key_norms: Optional[Dict[str, Dict[str, float]]] = None,
-    ) -> list[Any]:
+    def extract_features_for_joins(self, edge_to_id, algo_to_id, op_to_id, norms, md) -> list[Any]:
         J, A, O = len(edge_to_id), len(algo_to_id), len(op_to_id)
         """
         Build the Joins set for ONE plan as an n x |J| one-hot matrix.
@@ -278,50 +248,6 @@ class FeatureExtractor:
           - onehots: List[List[float]] of shape (n, |J|), one row per *join node* encountered.
           - edges_used: List[Edge], same order as onehots rows.
         """
-
-        # ----- column-stat lookup (for join key features) -----
-        def _estimate_ndv(n_distinct, table_rows: float) -> float:
-            """Postgres semantics: n_distinct < 0 means -1 * (ndv / table_rows)."""
-            if n_distinct is None:
-                return 0.0
-            try:
-                nd = float(n_distinct)
-            except Exception:
-                return 0.0
-            rows = max(float(table_rows or 0.0), 0.0)
-            if nd >= 0:
-                return nd
-            return max(-nd * rows, 0.0)
-
-        col_lookup: Dict[str, Dict[str, Any]] = {}
-        for tname, trec in self.table_stats.items():
-            t_rows = float(trec.get("tableSize") or trec.get("reltuples") or 0.0)
-            for c in (trec.get("columns") or []):
-                cname = c.get("colName")
-                if not cname:
-                    continue
-                col_lookup[f"{tname}.{cname}"] = {
-                    "nullFrac": float(c.get("nullFrac") or c.get("null_frac") or 0.0),
-                    "avgWidth": float(c.get("avgWidth") or c.get("avg_width") or 0.0),
-                    "nDistinct": c.get("nDistinct") or c.get("n_distinct"),
-                    "correlation": float(c.get("correlation") or 0.0),
-                    "tableRows": t_rows,
-                }
-
-        def _key_features(table: Any, col: Any) -> Tuple[float, float, float, float]:
-            """Return (null_frac, ndv_ratio, abs_corr, avg_width_log) for a join key column."""
-            if not (isinstance(table, str) and isinstance(col, str) and table and col):
-                return 0.0, 0.0, 0.0, 0.0
-            rec = col_lookup.get(f"{table}.{col}")
-            if not rec:
-                return 0.0, 0.0, 0.0, 0.0
-            nf = float(rec.get("nullFrac") or 0.0)
-            corr = abs(float(rec.get("correlation") or 0.0))
-            aw_log = math.log1p(max(float(rec.get("avgWidth") or 0.0), 0.0))
-            rows = float(rec.get("tableRows") or 0.0)
-            ndv = _estimate_ndv(rec.get("nDistinct"), rows)
-            ndv_ratio = min(max(ndv / max(rows, 1.0), 0.0), 1.0)
-            return nf, ndv_ratio, corr, aw_log
 
         def _canonical_edge(t1: str, t2: str) -> Edge:
             """Make the edge order-invariant (unordered pair)."""
@@ -343,21 +269,6 @@ class FeatureExtractor:
             # clip
             if x < p1: x = p1
             if x > p99: x = p99
-            return (x - mean) / std
-
-        def _norm_key(x: float, key: str) -> float:
-            """Normalise join-key column scalars (built from DB stats)."""
-            if not join_key_norms:
-                return float(x)
-            spec = join_key_norms.get(key)
-            if not spec:
-                return float(x)
-            p1, p99 = spec.get("p1", x), spec.get("p99", x)
-            mean, std = spec.get("mean", 0.0), spec.get("std", 1.0) or 1.0
-            if x < p1:
-                x = p1
-            if x > p99:
-                x = p99
             return (x - mean) / std
 
         def _is_join(node: Dict[str, Any]) -> bool:
@@ -427,23 +338,6 @@ class FeatureExtractor:
                     right_card_log = _norm(right_card_log, "right_card_log", norms)
                     join_sel_log = _norm(join_sel_log, "join_sel_log", norms)
 
-                    # Join-key column statistics (very predictive when the optimizer chooses between
-                    # NLJ/MJ/HJ and when index usage is possible).
-                    c1 = join.get("column_name1") or join.get("col_name1") or join.get("col1")
-                    c2 = join.get("column_name2") or join.get("col_name2") or join.get("col2")
-                    nf1, ndv1, corr1, aw1 = _key_features(t1, c1)
-                    nf2, ndv2, corr2, aw2 = _key_features(t2, c2)
-                    join_key_feats = [
-                        _norm_key(nf1, "key_null_frac"),
-                        _norm_key(nf2, "key_null_frac"),
-                        _norm_key(ndv1, "key_ndv_ratio"),
-                        _norm_key(ndv2, "key_ndv_ratio"),
-                        _norm_key(corr1, "key_abs_corr"),
-                        _norm_key(corr2, "key_abs_corr"),
-                        _norm_key(aw1, "key_avg_width_log"),
-                        _norm_key(aw2, "key_avg_width_log"),
-                    ]
-
                     ic = join.get("is_index_cond")
                     index_cond_flag = 1.0 if (isinstance(ic, (bool, int)) and bool(ic)) else 0.0
 
@@ -454,7 +348,6 @@ class FeatureExtractor:
                         + [raw_depth_norm, is_root_join, left_deep_hint]
                         + [est_card_out_log, est_width_out, est_loops_log]
                         + [left_card_log, right_card_log, join_sel_log]
-                        + join_key_feats
                         + [index_cond_flag])
 
                     out.append(r)
@@ -475,63 +368,13 @@ class FeatureExtractor:
         """
         Returns n × Fp matrix with one row per *atomic* predicate:
           [ one_hot_colA(|C|) | one_hot_colB(|C|) | one_hot_op(|P|)
-          | val_low_norm, val_high_norm
-          | colA_stats(6)
-          | sel_proxy_log, lit_is_numeric, lit_strlen_log, in_list_len_log, like_wildcard
-          | under_or, under_not
-          | is_join_pred, is_index_cond ]
+          | val_low_norm, val_high_norm | is_join_pred, is_index_cond ]
+        - Flattens boolean filters with 'children' (AND/OR/NOT) into atomic predicates.
+        - Keeps join predicates as before (two columns, operator from join.operator, values = 0,0).
         """
 
         C, P = len(column_to_id), len(predop_to_id)
         rows: List[Any] = []
-
-        # column stat lookup
-        def _estimate_ndv(n_distinct: Any, table_rows: float) -> float:
-            if n_distinct is None:
-                return 0.0
-            try:
-                nd = float(n_distinct)
-            except Exception:
-                return 0.0
-            rows_ = max(float(table_rows or 0.0), 0.0)
-            if nd >= 0:
-                return nd
-            return max(-nd * rows_, 0.0)
-
-        col_lookup: Dict[str, Dict[str, Any]] = {}
-        for tname, trec in self.table_stats.items():
-            t_rows = float(trec.get("tableSize") or trec.get("reltuples") or 0.0)
-            for c in (trec.get("columns") or []):
-                cname = c.get("colName") or c.get("attname")
-                if not cname:
-                    continue
-                col_lookup[f"{tname}.{cname}"] = {
-                    "nullFrac": float(c.get("nullFrac") or c.get("null_frac") or 0.0),
-                    "avgWidth": float(c.get("avgWidth") or c.get("avg_width") or 0.0),
-                    "nDistinct": c.get("nDistinct") or c.get("n_distinct"),
-                    "correlation": float(c.get("correlation") or 0.0),
-                    "dataType": (c.get("dataType") or c.get("data_type") or ""),
-                    "tableRows": t_rows,
-                }
-
-        def _dtype_flags(dt: str) -> Tuple[float, float]:
-            d = (dt or "").lower()
-            is_num = 1.0 if any(k in d for k in ["int", "numeric", "real", "double", "float", "decimal"]) else 0.0
-            is_txt = 1.0 if any(k in d for k in ["char", "text", "varchar"]) else 0.0
-            return is_num, is_txt
-
-        def _colA_stats(col_key: str) -> List[float]:
-            rec = col_lookup.get(col_key)
-            if not rec:
-                return [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            nf = float(rec.get("nullFrac") or 0.0)
-            rows = float(rec.get("tableRows") or 0.0)
-            ndv = _estimate_ndv(rec.get("nDistinct"), rows)
-            ndv_ratio = min(max(ndv / max(rows, 1.0), 0.0), 1.0)
-            abs_corr = abs(float(rec.get("correlation") or 0.0))
-            aw_log = math.log1p(max(float(rec.get("avgWidth") or 0.0), 0.0))
-            is_num, is_txt = _dtype_flags(str(rec.get("dataType") or ""))
-            return [nf, ndv_ratio, abs_corr, aw_log, is_num, is_txt]
 
         def _clip_z(x: float, spec: Dict[str, float]) -> float:
             # spec keys: mean, std, p1, p99
@@ -573,12 +416,7 @@ class FeatureExtractor:
                 row[idx] = 1.0
             return row
 
-        def _gather_atomic_filters(
-            filt: Any,
-            out: List[Tuple[Dict[str, Any], float, float]],
-            under_or: float = 0.0,
-            under_not: float = 0.0,
-        ) -> None:
+        def _gather_atomic_filters(filt: Any, out: List[Dict[str, Any]]) -> None:
             """
             Append *atomic* filter dicts to `out`.
             Accepts either:
@@ -591,18 +429,16 @@ class FeatureExtractor:
             # Boolean node with children
             op = (filt.get("operator") or "").upper()
             if "children" in filt and isinstance(filt["children"], list) and op in {"AND", "OR", "NOT"}:
-                next_under_or = 1.0 if (under_or > 0.0 or op == "OR") else 0.0
-                next_under_not = 1.0 if (under_not > 0.0 or op == "NOT") else 0.0
                 for child in filt["children"]:
-                    _gather_atomic_filters(child, out, next_under_or, next_under_not)
+                    _gather_atomic_filters(child, out)
                 return
 
             # Atomic node (the shape from your second example)
             # Expected keys: table_name, col_name, operator, literal, is_index_cond
             if "table_name" in filt and "col_name" in filt and "operator" in filt:
-                out.append((filt, under_or, under_not))
+                out.append(filt)
 
-        def encode_atomic_filter(f: Dict[str, Any], under_or: float, under_not: float):
+        def encode_atomic_filter(f: Dict[str, Any]):
             # Build column key
             t = f.get("table_name")
             c = f.get("col_name")
@@ -611,15 +447,16 @@ class FeatureExtractor:
             colA = f"{t}.{c}"
             a_idx = column_to_id.get(colA)
             if a_idx is None:
-                return
+                return  # unknown column in schema
 
             # Operator one-hot
             op = (f.get("operator") or "").upper()
             p_idx = predop_to_id.get(op, predop_to_id.get("<UNK_OP>", 0))
             op_hot = _one_hot(p_idx, P)
 
-            # Numeric values (two slots).
+            # Numeric values (two slots). Non-numeric → 0,0.
             lit = f.get("literal")
+            # Handle BETWEEN/IN if your dataset sometimes places them as atomic (rare); otherwise treat as unary
             if op == "BETWEEN":
                 low = high = None
                 if isinstance(lit, (list, tuple)) and len(lit) >= 2:
@@ -646,57 +483,13 @@ class FeatureExtractor:
                 v = _to_float(lit)
                 v1 = v2 = norm_val(colA, v)
 
-            # extra predicate features (schema-driven) 
-            colA_stats = _colA_stats(colA)
-
-            sel_proxy = 0.0
-            rec = col_lookup.get(colA)
-            if rec:
-                nf = float(rec.get("nullFrac") or 0.0)
-                rows_ = float(rec.get("tableRows") or 0.0)
-                ndv = _estimate_ndv(rec.get("nDistinct"), rows_)
-                base = (1.0 - nf) / max(ndv, 1.0)
-                if op in {"=", "=="}:
-                    sel_proxy = min(max(base, 0.0), 1.0)
-                elif op == "IN":
-                    L = len(lit) if isinstance(lit, (list, tuple)) else 1
-                    sel_proxy = min(max(base * float(L), 0.0), 1.0)
-            sel_proxy_log = math.log1p(sel_proxy)
-
-            lit_is_numeric = 0.0
-            if op == "BETWEEN" and isinstance(lit, (list, tuple)) and len(lit) >= 2:
-                lit_is_numeric = 1.0 if (_to_float(lit[0]) is not None and _to_float(lit[1]) is not None) else 0.0
-            elif op == "IN" and isinstance(lit, (list, tuple)):
-                lit_is_numeric = 1.0 if any(_to_float(x) is not None for x in lit) else 0.0
-            else:
-                lit_is_numeric = 1.0 if _to_float(lit) is not None else 0.0
-
-            lit_strlen_log = 0.0
-            if isinstance(lit, str):
-                s = lit.strip()
-                if len(s) >= 2 and ((s[0] == s[-1] == "'") or (s[0] == s[-1] == '"')):
-                    s = s[1:-1]
-                lit_strlen_log = math.log1p(len(s))
-
-            in_list_len_log = math.log1p(len(lit)) if (op == "IN" and isinstance(lit, (list, tuple))) else 0.0
-
-            like_wildcard = 0.0
-            if op in {"LIKE", "ILIKE"} and isinstance(lit, str):
-                s = lit.strip()
-                if len(s) >= 2 and ((s[0] == s[-1] == "'") or (s[0] == s[-1] == '"')):
-                    s = s[1:-1]
-                like_wildcard = 1.0 if ("%" in s or "_" in s) else 0.0
-
             is_join_pred = 0.0
             is_index_cond = 1.0 if bool(f.get("is_index_cond")) else 0.0
             row = (
-                _one_hot(a_idx, C) + [0.0] * C +  # colB empty
-                op_hot +
-                [v1, v2] +
-                colA_stats +
-                [sel_proxy_log, lit_is_numeric, lit_strlen_log, in_list_len_log, like_wildcard] +
-                [under_or, under_not] +
-                [is_join_pred, is_index_cond]
+                    _one_hot(a_idx, C) + [0.0] * C +  # colB empty
+                    op_hot +
+                    [v1, v2] +
+                    [is_join_pred, is_index_cond]
             )
             rows.append(row)
 
@@ -724,24 +517,11 @@ class FeatureExtractor:
             is_join_pred = 1.0
             is_index_cond = 1.0 if bool(j.get("is_index_cond")) else 0.0
 
-            colA_stats = _colA_stats(colA)
-            
-            sel_proxy_log = 0.0
-            lit_is_numeric = 0.0
-            lit_strlen_log = 0.0
-            in_list_len_log = 0.0
-            like_wildcard = 0.0
-            under_or = 0.0
-            under_not = 0.0
-
             row = (
                     _one_hot(a_idx, C) +
                     _one_hot(b_idx, C) +
                     op_hot +
                     [0.0, 0.0] +
-                    colA_stats +
-                    [sel_proxy_log, lit_is_numeric, lit_strlen_log, in_list_len_log, like_wildcard] +
-                    [under_or, under_not] +
                     [is_join_pred, is_index_cond]
             )
             rows.append(row)
@@ -750,7 +530,7 @@ class FeatureExtractor:
             pp = node.get("plan_parameters", {})
 
             filt = pp.get("filter")
-            atoms: List[Tuple[Dict[str, Any], float, float]] = []
+            atoms: List[Dict[str, Any]] = []
 
             if isinstance(filt, dict):
                 _gather_atomic_filters(filt, atoms)
@@ -758,8 +538,8 @@ class FeatureExtractor:
                 for item in filt:
                     _gather_atomic_filters(item, atoms)
 
-            for af, uo, un in atoms:
-                encode_atomic_filter(af, uo, un)
+            for af in atoms:
+                encode_atomic_filter(af)
 
             encode_join(pp)
 
