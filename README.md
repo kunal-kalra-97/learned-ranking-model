@@ -1,4 +1,4 @@
-# Learned Query Optimizer - AIDM WiSe 2025/26
+# Learned Query Optimizer
 
 ## Section 0 - General Information
 
