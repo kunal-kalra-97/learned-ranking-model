@@ -242,7 +242,7 @@ Runtime labels are transformed via `log1p(runtime_ms)` before training. This com
 
 ### Loss Function
 
-Huber loss (delta=1.0) on `log1p(runtime_ms)` predictions. Huber loss behaves like MSE for small errors but like MAE for large errors, making it more robust to outlier runtimes (e.g. timeouts or pathologically slow plans) that would otherwise dominate MSE.
+Huber loss (delta=1.0) on `log1p(runtime_ms)` predictions.
 
 ### Inference (Plan Ranking)
 
@@ -278,22 +278,8 @@ Within each batch, sets are zero-padded to the maximum set size and the mask ind
 | Residual blocks per SetEncoder | 2 |
 | Final MLP layers | 4 (including output) |
 
-### Early Stopping
 
-Monitors validation loss. Stops after 7 epochs without improvement and restores the best checkpoint weights.
-
-### Training Curve
-
-![Training Curve](training_curve.png)
-
-- Early stopping triggered at epoch 12 (no improvement for 7 epochs)
-- Best model restored from epoch 5 (val_loss=0.1467)
-- Both losses drop rapidly in epochs 1-3, then overfit begins after epoch 5
-- The train-val gap and validation oscillation after epoch 5 motivated the addition of early stopping, LR scheduling, and gradient clipping
-
----
-
-## Section 4 - Evaluation and Results
+## Evaluation and Results
 
 ### Metric
 
@@ -308,35 +294,3 @@ Sum of picked runtimes (seconds) across all test queries. Lower is better.
 | Best epoch / val_loss | 5 / 0.1467 |
 | Early stopping epoch | 12 |
 | Training time | ~160s (CPU) |
-
----
-
-## Section 5 - Special Ingredients
-
-### Scan-Level Features
-
-Added 12 features per table capturing how each table is accessed in the plan (scan type, cardinality, loops, selectivity, index conditions). Without these, plans with different scan strategies on the same table were indistinguishable. This was the highest-impact change.
-
-### Huber Loss
-
-Replaced MSE with Huber loss (delta=1.0) to reduce the influence of outlier runtimes on gradient updates. MSE squares large residuals, which causes training instability; Huber applies linear penalty beyond the delta threshold.
-
-### Combined Training Data
-
-Merging both training files roughly doubled the training set, directly reducing the overfitting visible in the training curve.
-
-### Join Feature Engineering
-
-Each join node carries 10 continuous features (cardinality estimates, loops, selectivity, depth, left-deep hints), z-scored with clipping. Inspired by Ganapathi et al. (ICDE 2009).
-
-### Predicate Flattening
-
-Nested boolean filter trees (AND/OR/NOT) are recursively flattened into uniform atomic predicates with column, operator, literal, and index-condition encoding.
-
-### Clip-then-Z-Score Normalization
-
-All continuous features are clipped to [p1, p99] of the training distribution before z-scoring, preventing extreme outliers from dominating the feature space.
-
-### Masked Mean Pooling
-
-Mean pooling (rather than sum) over variable-length sets keeps representations invariant to set size, improving training stability.
